@@ -16,7 +16,6 @@ esp-println = { version = "0.16.1", features = ["esp32s3"]}
 mipidsi = "0.9.0"
 embedded-graphics = "0.8.1"
 
-
 [profile.dev]
 # Rust debug is too slow.
 # For debug builds always builds with some optimization
