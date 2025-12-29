@@ -6,7 +6,7 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use embedded_graphics::pixelcolor::{Rgb555, Rgb565};
+use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::DrawTarget;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
@@ -138,9 +138,12 @@ fn main() -> ! {
                 ) {
                     println!("raw touch: x={} y={}", x_raw, y_raw);
 
-                    // Later: map raw 0..4095 to 0..239 / 0..319
-                    // let x = map(x_raw as i32, X_MIN, X_MAX, 0, 239);
-                    // let y = map(y_raw as i32, Y_MIN, Y_MAX, 0, 319);
+                    if let Some(calibration) = &touch_calibration {
+                        let (x, y) = map_touch(x_raw, y_raw, calibration);
+                        println!("touch: x={} y={}", x, y);
+
+                        screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
+                    }
                 }
             }
 
@@ -168,9 +171,26 @@ fn main() -> ! {
             }
 
             render_grid(&mut display, &screen_grid).unwrap();
-            delay.delay_millis(500);
+            delay.delay_millis(100);
         }
     }
+}
+
+fn map(raw: u16, min: u16, max: u16, out_max: u16) -> u16 {
+    if max <= min {
+        return 0;
+    }
+
+    let num = (raw - min) as u32 * out_max as u32;
+    let den = (max - min) as u32;
+
+    (num / den) as u16
+}
+
+fn map_touch(raw_x: u16, raw_y: u16, calibration: &TouchCalibration) -> (u16, u16) {
+    let x = map(raw_x, calibration.min_x, calibration.max_x, 239);
+    let y = map(raw_y, calibration.min_y, calibration.max_y, 319);
+    (x, y)
 }
 
 struct TouchCalibration {
@@ -211,14 +231,23 @@ fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
                 // Later: map raw 0..4095 to 0..239 / 0..319
                 // let x = map(x_raw as i32, X_MIN, X_MAX, 0, 239);
                 // let y = map(y_raw as i32, Y_MIN, Y_MAX, 0, 319);
-            }
-            if now.elapsed().as_millis() >= 600 && !old_input {
-                // Go to next calibration step.
-                calibration_step += 1;
-                old_input = true;
-                // if calibration_step >= 4 {
-                //     calibration_step = 0;
-                // }
+
+                if now.elapsed().as_millis() >= 600 && !old_input {
+                    // Top Left
+                    if calibration_step == 0 {
+                        calibration.min_x = x_raw;
+                        calibration.min_y = y_raw;
+                    }
+                    // Top Right
+                    if calibration_step == 3 {
+                        calibration.max_x = x_raw;
+                        calibration.max_y = y_raw;
+                    }
+
+                    // Go to next calibration step.
+                    calibration_step += 1;
+                    old_input = true;
+                }
             }
         } else {
             now = Instant::now();
@@ -232,10 +261,10 @@ fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
 
         match calibration_step {
             0 => {
+                screen_grid.put_char(0, 0, ' ', color, color);
+                screen_grid.put_char(0, 1, ' ', color, color);
+                screen_grid.put_char(1, 0, ' ', color, color);
                 screen_grid.put_char(1, 1, ' ', color, color);
-                screen_grid.put_char(1, 2, ' ', color, color);
-                screen_grid.put_char(2, 1, ' ', color, color);
-                screen_grid.put_char(2, 2, ' ', color, color);
             }
             1 => {
                 screen_grid.put_char(37, 1, ' ', color, color);
@@ -250,10 +279,10 @@ fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
                 screen_grid.put_char(2, 30, ' ', color, color);
             }
             3 => {
-                screen_grid.put_char(37, 29, ' ', color, color);
-                screen_grid.put_char(38, 29, ' ', color, color);
-                screen_grid.put_char(37, 30, ' ', color, color);
                 screen_grid.put_char(38, 30, ' ', color, color);
+                screen_grid.put_char(39, 30, ' ', color, color);
+                screen_grid.put_char(38, 31, ' ', color, color);
+                screen_grid.put_char(39, 31, ' ', color, color);
             }
             _ => {}
         }
