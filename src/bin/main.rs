@@ -6,15 +6,17 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use embedded_hal::digital::ErrorType;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
+use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
-use esp_hal::{DriverMode, main};
-use esp_println::println;
 
 use esp_test::input::{TouchEvent, TouchPoller, calibrate_touch};
+use esp_test::log::init_log;
+use log::info;
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
@@ -23,7 +25,7 @@ use esp_test::graphics::*;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    println!("ERROR: {}", info.message());
+    log::error!("ERROR: {}", info.message());
     loop {}
 }
 
@@ -33,7 +35,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 #[main]
 fn main() -> ! {
-    // generator version: 1.0.1
+    init_log(log::LevelFilter::Info).expect("Failed to initialize logger...");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     let output_config = OutputConfig::default();
@@ -127,6 +129,7 @@ fn main() -> ! {
             match event {
                 TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
                     screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
+                    info!("Clicked on x: {}, y: {}", x, y);
                 }
                 TouchEvent::Up => {}
             }
