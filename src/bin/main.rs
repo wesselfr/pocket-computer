@@ -6,8 +6,6 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::DrawTarget;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
@@ -16,7 +14,7 @@ use esp_hal::time::{Duration, Instant, Rate};
 use esp_hal::{DriverMode, main};
 use esp_println::println;
 
-use esp_test::touch::xpt2046_read_axis;
+use esp_test::input::{TouchEvent, TouchPoller, calibrate_touch};
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
@@ -107,45 +105,37 @@ fn main() -> ! {
     .with_miso(miso)
     .with_mosi(mosi);
 
-    let mut touch_calibration = None;
+    let touch_calibration = calibrate_touch(
+        &t_irq,
+        &mut touch_spi,
+        &mut t_cs,
+        &mut screen_grid,
+        &mut display,
+    );
+    let mut touch_poller = TouchPoller::new(touch_calibration, t_irq, touch_spi, t_cs);
 
     let mut flicker = false;
     let mut count: u16 = 0;
 
+    // Timers
+    let mut last_screen_refresh = Instant::now();
+    let mut last_input = Instant::now();
+
     screen_grid.clear(' ', BASE03, BASE03);
     loop {
-        let delay_start = Instant::now();
-        if touch_calibration.is_none() {
-            touch_calibration = Some(calibrate_touch(
-                &t_irq,
-                &mut touch_spi,
-                &mut t_cs,
-                &mut screen_grid,
-                &mut display,
-            ));
-            screen_grid.clear(' ', BASE03, BASE03);
+        if let Some(event) = touch_poller.poll() {
+            match event {
+                TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
+                    screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
+                }
+                TouchEvent::Up => {}
+            }
+            last_input = Instant::now();
         }
-        while delay_start.elapsed() < Duration::from_millis(500) {
-            println!("Hello world!");
+
+        if last_screen_refresh.elapsed() > Duration::from_millis(33) {
             flicker = !flicker;
             count += 1;
-
-            if t_irq.is_low() {
-                // Take a couple of samples to smooth noise if you like
-                if let (Ok(x_raw), Ok(y_raw)) = (
-                    xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0xD0),
-                    xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0x90),
-                ) {
-                    println!("raw touch: x={} y={}", x_raw, y_raw);
-
-                    if let Some(calibration) = &touch_calibration {
-                        let (x, y) = map_touch(x_raw, y_raw, calibration);
-                        println!("touch: x={} y={}", x, y);
-
-                        screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
-                    }
-                }
-            }
 
             screen_grid.put_char(0, 0, ' ', BASE03, YELLOW);
             screen_grid.put_char(1, 0, ' ', BASE03, ORANGE);
@@ -171,124 +161,16 @@ fn main() -> ! {
             }
 
             render_grid(&mut display, &screen_grid).unwrap();
-            delay.delay_millis(100);
+            last_screen_refresh = Instant::now();
         }
-    }
-}
 
-fn map(raw: u16, min: u16, max: u16, out_max: u16) -> u16 {
-    if max <= min {
-        return 0;
-    }
-
-    let num = (raw - min) as u32 * out_max as u32;
-    let den = (max - min) as u32;
-
-    (num / den) as u16
-}
-
-fn map_touch(raw_x: u16, raw_y: u16, calibration: &TouchCalibration) -> (u16, u16) {
-    let x = map(raw_x, calibration.min_x, calibration.max_x, 239);
-    let y = map(raw_y, calibration.min_y, calibration.max_y, 319);
-    (x, y)
-}
-
-struct TouchCalibration {
-    pub min_x: u16,
-    pub min_y: u16,
-    pub max_x: u16,
-    pub max_y: u16,
-}
-
-fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
-    t_irq: &Input,
-    mut touch_spi: &mut Spi<DM>,
-    mut t_cs: &mut Output,
-    screen_grid: &mut ScreenGrid,
-    display: &mut D,
-) -> TouchCalibration {
-    let mut calibration = TouchCalibration {
-        min_x: 0,
-        min_y: 0,
-        max_x: 0,
-        max_y: 0,
-    };
-
-    let mut now = Instant::now();
-    let mut old_input = false;
-    let delay = Delay::new();
-    let mut calibration_step = 0;
-    while calibration_step < 4 {
-        let state = t_irq.is_low();
-
-        if state {
-            if let (Ok(x_raw), Ok(y_raw)) = (
-                xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0xD0),
-                xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0x90),
-            ) {
-                println!("raw touch: x={} y={}", x_raw, y_raw);
-
-                // Later: map raw 0..4095 to 0..239 / 0..319
-                // let x = map(x_raw as i32, X_MIN, X_MAX, 0, 239);
-                // let y = map(y_raw as i32, Y_MIN, Y_MAX, 0, 319);
-
-                if now.elapsed().as_millis() >= 600 && !old_input {
-                    // Top Left
-                    if calibration_step == 0 {
-                        calibration.min_x = x_raw;
-                        calibration.min_y = y_raw;
-                    }
-                    // Top Right
-                    if calibration_step == 3 {
-                        calibration.max_x = x_raw;
-                        calibration.max_y = y_raw;
-                    }
-
-                    // Go to next calibration step.
-                    calibration_step += 1;
-                    old_input = true;
-                }
-            }
+        // TODO: Use a power manager here.
+        if last_input.elapsed() > Duration::from_secs(10) {
+            // No input detected for a while. Use low power mode.
+            delay.delay_millis(1000);
         } else {
-            now = Instant::now();
-            old_input = false;
+            // Default refresh rate
+            delay.delay_millis(20);
         }
-
-        let color = if state && !old_input { GREEN } else { BASE01 };
-
-        screen_grid.clear(' ', BASE03, BASE03);
-        screen_grid.write_str(11, 1, "TOUCH CALIBRATION", color, BASE03);
-
-        match calibration_step {
-            0 => {
-                screen_grid.put_char(0, 0, ' ', color, color);
-                screen_grid.put_char(0, 1, ' ', color, color);
-                screen_grid.put_char(1, 0, ' ', color, color);
-                screen_grid.put_char(1, 1, ' ', color, color);
-            }
-            1 => {
-                screen_grid.put_char(37, 1, ' ', color, color);
-                screen_grid.put_char(37, 2, ' ', color, color);
-                screen_grid.put_char(38, 1, ' ', color, color);
-                screen_grid.put_char(38, 2, ' ', color, color);
-            }
-            2 => {
-                screen_grid.put_char(1, 29, ' ', color, color);
-                screen_grid.put_char(2, 29, ' ', color, color);
-                screen_grid.put_char(1, 30, ' ', color, color);
-                screen_grid.put_char(2, 30, ' ', color, color);
-            }
-            3 => {
-                screen_grid.put_char(38, 30, ' ', color, color);
-                screen_grid.put_char(39, 30, ' ', color, color);
-                screen_grid.put_char(38, 31, ' ', color, color);
-                screen_grid.put_char(39, 31, ' ', color, color);
-            }
-            _ => {}
-        }
-
-        render_grid(display, &screen_grid);
-        delay.delay_millis(200);
     }
-    calibration
 }
