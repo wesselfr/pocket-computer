@@ -6,7 +6,6 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use embedded_hal::digital::ErrorType;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
@@ -131,7 +130,9 @@ fn main() -> ! {
                     screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
                     info!("Clicked on x: {}, y: {}", x, y);
                 }
-                TouchEvent::Up => {}
+                TouchEvent::Up => {
+                    info!("No longer touching.");
+                }
             }
             last_input = Instant::now();
         }

@@ -9,6 +9,7 @@ use esp_hal::time::Instant;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::DrawTarget;
 use esp_hal::DriverMode;
+use log::info;
 
 pub enum TouchEvent {
     Down { x: u16, y: u16 },
@@ -28,6 +29,8 @@ pub struct TouchPoller<'a, DM: DriverMode> {
     t_irq: Input<'a>,
     touch_spi: Spi<'a, DM>,
     t_cs: Output<'a>,
+
+    touch_down: bool,
 }
 
 impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
@@ -42,6 +45,7 @@ impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
             t_irq,
             touch_spi,
             t_cs,
+            touch_down: false,
         }
     }
     pub fn poll(&mut self) -> Option<TouchEvent> {
@@ -51,8 +55,16 @@ impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
                 xpt2046_read_axis(&mut self.touch_spi, &mut self.t_cs, 0x90),
             ) {
                 let (x, y) = map_touch(x_raw, y_raw, &self.calibration);
-                return Some(TouchEvent::Down { x, y });
+                if self.touch_down {
+                    return Some(TouchEvent::Move { x, y });
+                } else {
+                    self.touch_down = true;
+                    return Some(TouchEvent::Down { x, y });
+                }
             }
+        } else if self.touch_down {
+            self.touch_down = false;
+            return Some(TouchEvent::Up);
         }
         None
     }
@@ -101,12 +113,9 @@ pub fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
                 xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0xD0),
                 xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0x90),
             ) {
-                // println!("raw touch: x={} y={}", x_raw, y_raw);
+                info!("raw touch: x={} y={}", x_raw, y_raw);
 
-                // Later: map raw 0..4095 to 0..239 / 0..319
-                // let x = map(x_raw as i32, X_MIN, X_MAX, 0, 239);
-                // let y = map(y_raw as i32, Y_MIN, Y_MAX, 0, 319);
-
+                // TODO: Use all 4 corners for calibration
                 if now.elapsed().as_millis() >= 600 && !old_input {
                     // Top Left
                     if calibration_step == 0 {
