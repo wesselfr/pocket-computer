@@ -17,9 +17,11 @@ use log::info;
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
+use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{TouchEvent, TouchPoller, calibrate_touch};
 use pocket_computer::log::init_log;
 
+use pocket_computer::apps::app::App;
 use pocket_computer::graphics::*;
 
 #[panic_handler]
@@ -115,12 +117,11 @@ fn main() -> ! {
     );
     let mut touch_poller = TouchPoller::new(touch_calibration, t_irq, touch_spi, t_cs);
 
-    let mut flicker = false;
-    let mut count: u16 = 0;
-
     // Timers
     let mut last_screen_refresh = Instant::now();
     let mut last_input = Instant::now();
+
+    let mut home_app = HomeApp::default();
 
     screen_grid.clear(' ', BASE03, BASE03);
     loop {
@@ -137,33 +138,10 @@ fn main() -> ! {
             last_input = Instant::now();
         }
 
+        home_app.update();
+        home_app.render(&mut screen_grid);
+
         if last_screen_refresh.elapsed() > Duration::from_millis(33) {
-            flicker = !flicker;
-            count += 1;
-
-            screen_grid.put_char(0, 0, ' ', BASE03, YELLOW);
-            screen_grid.put_char(1, 0, ' ', BASE03, ORANGE);
-            screen_grid.put_char(2, 0, ' ', BASE03, RED);
-            screen_grid.put_char(3, 0, ' ', BASE03, MAGENTA);
-            screen_grid.put_char(4, 0, ' ', BASE03, VIOLET);
-            screen_grid.put_char(5, 0, ' ', BASE03, BLUE);
-            screen_grid.put_char(6, 0, ' ', BASE03, CYAN);
-            screen_grid.put_char(7, 0, ' ', BASE03, GREEN);
-
-            if flicker {
-                screen_grid.write_str(0, 3, "Hello Rust!", BASE03, RED);
-            } else {
-                screen_grid.write_str(0, 3, "Hello Rust!", BASE2, BASE03);
-            }
-
-            for i in 0..(count / 5).min(32) {
-                screen_grid.write_str(0, 4 + i, "another one!", BASE1, BASE03);
-            }
-            if count / 5 > 5 {
-                count = 0;
-                screen_grid.clear(' ', BASE03, BASE03);
-            }
-
             render_grid(&mut display, &screen_grid).unwrap();
             last_screen_refresh = Instant::now();
         }
