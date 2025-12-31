@@ -13,14 +13,14 @@ use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
 
-use esp_test::input::{TouchEvent, TouchPoller, calibrate_touch};
-use esp_test::log::init_log;
 use log::info;
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
+use pocket_computer::input::{TouchEvent, TouchPoller, calibrate_touch};
+use pocket_computer::log::init_log;
 
-use esp_test::graphics::*;
+use pocket_computer::graphics::*;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
