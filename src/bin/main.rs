@@ -13,15 +13,14 @@ use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
 
-use log::info;
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
 use pocket_computer::apps::home::HomeApp;
-use pocket_computer::input::{TouchEvent, TouchPoller, calibrate_touch};
+use pocket_computer::input::{TouchPoller, calibrate_touch};
 use pocket_computer::log::init_log;
 
-use pocket_computer::apps::app::App;
+use pocket_computer::apps::app::{App, Context};
 use pocket_computer::graphics::*;
 
 #[panic_handler]
@@ -122,27 +121,22 @@ fn main() -> ! {
     let mut last_input = Instant::now();
 
     let mut home_app = HomeApp::default();
+    let mut ctx = Context {
+        grid: &mut screen_grid,
+    };
 
-    screen_grid.clear(' ', BASE03, BASE03);
+    home_app.init(&mut ctx);
     loop {
-        if let Some(event) = touch_poller.poll() {
-            match event {
-                TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
-                    screen_grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
-                    info!("Clicked on x: {}, y: {}", x, y);
-                }
-                TouchEvent::Up => {
-                    info!("No longer touching.");
-                }
-            }
+        let event = touch_poller.poll();
+        if event.is_some() {
             last_input = Instant::now();
         }
 
-        home_app.update();
-        home_app.render(&mut screen_grid);
+        let dirty = home_app.update(event, &mut ctx);
 
-        if last_screen_refresh.elapsed() > Duration::from_millis(33) {
-            render_grid(&mut display, &screen_grid).unwrap();
+        if last_screen_refresh.elapsed() > Duration::from_millis(33) || dirty {
+            home_app.render(&mut ctx);
+            render_grid(&mut display, &ctx.grid).unwrap();
             last_screen_refresh = Instant::now();
         }
 
