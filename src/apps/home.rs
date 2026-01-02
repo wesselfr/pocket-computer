@@ -35,6 +35,10 @@ impl App for HomeApp {
                 TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
                     ctx.grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
                     info!("Clicked on x: {}, y: {}", x, y);
+
+                    if x < 10 || y < 10 {
+                        return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
+                    }
                 }
                 TouchEvent::Up => {
                     info!("No longer touching.");
@@ -56,15 +60,6 @@ impl App for HomeApp {
         AppCmd::None
     }
     fn render(&mut self, ctx: &mut Context) {
-        ctx.grid.put_char(0, 0, ' ', BASE03, YELLOW);
-        ctx.grid.put_char(1, 0, ' ', BASE03, ORANGE);
-        ctx.grid.put_char(2, 0, ' ', BASE03, RED);
-        ctx.grid.put_char(3, 0, ' ', BASE03, MAGENTA);
-        ctx.grid.put_char(4, 0, ' ', BASE03, VIOLET);
-        ctx.grid.put_char(5, 0, ' ', BASE03, BLUE);
-        ctx.grid.put_char(6, 0, ' ', BASE03, CYAN);
-        ctx.grid.put_char(7, 0, ' ', BASE03, GREEN);
-
         if self.flicker {
             ctx.grid.write_str(0, 3, "Hello Rust!", BASE03, RED);
         } else {

@@ -16,6 +16,7 @@ use esp_hal::time::{Duration, Instant, Rate};
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
+use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{TouchPoller, calibrate_touch};
 use pocket_computer::log::init_log;
@@ -120,22 +121,29 @@ fn main() -> ! {
     let mut last_screen_refresh = Instant::now();
     let mut last_input = Instant::now();
 
-    let mut home_app = HomeApp::default();
+    let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
         grid: &mut screen_grid,
     };
 
-    home_app.init(&mut ctx);
+    active_app.init(&mut ctx);
     loop {
         let event = touch_poller.poll();
         if event.is_some() {
             last_input = Instant::now();
         }
 
-        let dirty = home_app.update(event, &mut ctx) == AppCmd::Dirty;
+        let dirty = match active_app.update(event, &mut ctx) {
+            AppCmd::None => false,
+            AppCmd::Dirty => true,
+            AppCmd::SwitchApp(app) => {
+                active_app = active_app.switch(app);
+                active_app.init(&mut ctx) == AppCmd::Dirty
+            }
+        };
 
         if last_screen_refresh.elapsed() > Duration::from_millis(33) || dirty {
-            home_app.render(&mut ctx);
+            active_app.render(&mut ctx);
             render_grid(&mut display, &ctx.grid).unwrap();
             last_screen_refresh = Instant::now();
         }

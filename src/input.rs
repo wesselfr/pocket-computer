@@ -71,7 +71,7 @@ impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
 }
 
 fn map(raw: u16, min: u16, max: u16, out_max: u16) -> u16 {
-    if max <= min {
+    if max <= min || raw < min {
         return 0;
     }
 
