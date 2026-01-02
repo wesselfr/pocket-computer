@@ -2,7 +2,7 @@ use esp_hal::time::{Duration, Instant};
 use log::info;
 
 use crate::{
-    apps::app::{App, Context},
+    apps::app::{App, AppCmd, Context},
     graphics::*,
     input::TouchEvent,
 };
@@ -24,11 +24,11 @@ impl Default for HomeApp {
 }
 
 impl App for HomeApp {
-    fn init(&mut self, ctx: &mut Context) -> bool {
+    fn init(&mut self, ctx: &mut Context) -> AppCmd {
         ctx.grid.clear(' ', BASE03, BASE03);
-        true
+        AppCmd::Dirty
     }
-    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> bool {
+    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
         let mut dirty = false;
         if let Some(event) = event {
             match event {
@@ -50,7 +50,10 @@ impl App for HomeApp {
             dirty = true;
         }
 
-        dirty
+        if dirty {
+            return AppCmd::Dirty;
+        }
+        AppCmd::None
     }
     fn render(&mut self, ctx: &mut Context) {
         ctx.grid.put_char(0, 0, ' ', BASE03, YELLOW);

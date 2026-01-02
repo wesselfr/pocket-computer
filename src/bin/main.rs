@@ -20,7 +20,7 @@ use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{TouchPoller, calibrate_touch};
 use pocket_computer::log::init_log;
 
-use pocket_computer::apps::app::{App, Context};
+use pocket_computer::apps::app::{App, AppCmd, Context};
 use pocket_computer::graphics::*;
 
 #[panic_handler]
@@ -132,7 +132,7 @@ fn main() -> ! {
             last_input = Instant::now();
         }
 
-        let dirty = home_app.update(event, &mut ctx);
+        let dirty = home_app.update(event, &mut ctx) == AppCmd::Dirty;
 
         if last_screen_refresh.elapsed() > Duration::from_millis(33) || dirty {
             home_app.render(&mut ctx);
