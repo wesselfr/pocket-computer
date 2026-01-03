@@ -1,7 +1,8 @@
-use crate::{graphics::ScreenGrid, input::TouchEvent};
+use crate::{graphics::ScreenGrid, input::ButtonManager, touch::TouchEvent};
 
 pub struct Context<'a> {
     pub grid: &'a mut ScreenGrid<'a>,
+    pub buttons: &'a mut ButtonManager,
 }
 
 pub trait App {

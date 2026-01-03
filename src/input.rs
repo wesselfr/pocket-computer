@@ -1,178 +1,63 @@
-use crate::graphics::*;
-use crate::touch::xpt2046_read_axis;
-use esp_hal::delay::Delay;
-use esp_hal::gpio::{Input, Output};
-use esp_hal::spi::master::Spi;
-use esp_hal::time::Instant;
+use crate::touch::TouchEvent;
+use core::u16;
+use heapless::index_map::FnvIndexMap;
 
-// TODO: Move touch calibration out of input
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::DrawTarget;
-use esp_hal::DriverMode;
-use log::info;
+pub type ButtonId = &'static str;
 
-pub enum TouchEvent {
-    Down { x: u16, y: u16 },
-    Move { x: u16, y: u16 },
-    Up,
+pub enum ButtonEvent {
+    Down(ButtonId),
+    Up(ButtonId),
 }
 
-pub struct TouchCalibration {
-    pub min_x: u16,
-    pub min_y: u16,
-    pub max_x: u16,
-    pub max_y: u16,
+#[derive(Debug)]
+pub struct Rect {
+    pub x_min: u16,
+    pub y_min: u16,
+    pub x_max: u16,
+    pub y_max: u16,
 }
 
-pub struct TouchPoller<'a, DM: DriverMode> {
-    calibration: TouchCalibration,
-    t_irq: Input<'a>,
-    touch_spi: Spi<'a, DM>,
-    t_cs: Output<'a>,
-
-    touch_down: bool,
+impl Rect {
+    pub fn inside(&self, x: u16, y: u16) -> bool {
+        x >= self.x_min && x <= self.x_max && y >= self.y_min && y <= self.y_max
+    }
 }
 
-impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
-    pub fn new(
-        calibration: TouchCalibration,
-        t_irq: Input<'a>,
-        touch_spi: Spi<'a, DM>,
-        t_cs: Output<'a>,
-    ) -> Self {
+pub struct ButtonManager {
+    pub active_button: Option<ButtonId>,
+    pub buttons: FnvIndexMap<ButtonId, Rect, 16>,
+}
+
+impl ButtonManager {
+    pub fn new() -> Self {
         Self {
-            calibration,
-            t_irq,
-            touch_spi,
-            t_cs,
-            touch_down: false,
+            active_button: None,
+            buttons: FnvIndexMap::<ButtonId, Rect, 16>::new(),
         }
     }
-    pub fn poll(&mut self) -> Option<TouchEvent> {
-        if self.t_irq.is_low() {
-            if let (Ok(x_raw), Ok(y_raw)) = (
-                xpt2046_read_axis(&mut self.touch_spi, &mut self.t_cs, 0xD0),
-                xpt2046_read_axis(&mut self.touch_spi, &mut self.t_cs, 0x90),
-            ) {
-                let (x, y) = map_touch(x_raw, y_raw, &self.calibration);
-                if self.touch_down {
-                    return Some(TouchEvent::Move { x, y });
-                } else {
-                    self.touch_down = true;
-                    return Some(TouchEvent::Down { x, y });
+    pub fn register_button(&mut self, name: ButtonId, rect: Rect) {
+        self.buttons
+            .insert(name, rect)
+            .expect("Failed to add button");
+    }
+    pub fn update(&mut self, touch_event: TouchEvent) -> Option<ButtonEvent> {
+        match touch_event {
+            TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
+                for (id, rect) in &self.buttons {
+                    if rect.inside(x, y) {
+                        self.active_button = Some(*id);
+                        return Some(ButtonEvent::Down(*id));
+                    }
                 }
             }
-        } else if self.touch_down {
-            self.touch_down = false;
-            return Some(TouchEvent::Up);
+            TouchEvent::Up => {
+                if let Some(previous_button) = self.active_button {
+                    self.active_button = None;
+                    return Some(ButtonEvent::Up(previous_button));
+                }
+            }
         }
+
         None
     }
-}
-
-fn map(raw: u16, min: u16, max: u16, out_max: u16) -> u16 {
-    if max <= min || raw < min {
-        return 0;
-    }
-
-    let num = (raw - min) as u32 * out_max as u32;
-    let den = (max - min) as u32;
-
-    (num / den) as u16
-}
-
-fn map_touch(raw_x: u16, raw_y: u16, calibration: &TouchCalibration) -> (u16, u16) {
-    let x = map(raw_x, calibration.min_x, calibration.max_x, 239);
-    let y = map(raw_y, calibration.min_y, calibration.max_y, 319);
-    (x, y)
-}
-
-pub fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
-    t_irq: &Input,
-    mut touch_spi: &mut Spi<DM>,
-    mut t_cs: &mut Output,
-    screen_grid: &mut ScreenGrid,
-    display: &mut D,
-) -> TouchCalibration {
-    let mut calibration = TouchCalibration {
-        min_x: 0,
-        min_y: 0,
-        max_x: 0,
-        max_y: 0,
-    };
-
-    let mut now = Instant::now();
-    let mut old_input = false;
-    let delay = Delay::new();
-    let mut calibration_step = 0;
-    while calibration_step < 4 {
-        let state = t_irq.is_low();
-
-        if state {
-            if let (Ok(x_raw), Ok(y_raw)) = (
-                xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0xD0),
-                xpt2046_read_axis(&mut touch_spi, &mut t_cs, 0x90),
-            ) {
-                info!("raw touch: x={} y={}", x_raw, y_raw);
-
-                // TODO: Use all 4 corners for calibration
-                if now.elapsed().as_millis() >= 600 && !old_input {
-                    // Top Left
-                    if calibration_step == 0 {
-                        calibration.min_x = x_raw;
-                        calibration.min_y = y_raw;
-                    }
-                    // Top Right
-                    if calibration_step == 3 {
-                        calibration.max_x = x_raw;
-                        calibration.max_y = y_raw;
-                    }
-
-                    // Go to next calibration step.
-                    calibration_step += 1;
-                    old_input = true;
-                }
-            }
-        } else {
-            now = Instant::now();
-            old_input = false;
-        }
-
-        let color = if state && !old_input { GREEN } else { BASE01 };
-
-        screen_grid.clear(' ', BASE03, BASE03);
-        screen_grid.write_str(11, 1, "TOUCH CALIBRATION", color, BASE03);
-
-        match calibration_step {
-            0 => {
-                screen_grid.put_char(0, 0, ' ', color, color);
-                screen_grid.put_char(0, 1, ' ', color, color);
-                screen_grid.put_char(1, 0, ' ', color, color);
-                screen_grid.put_char(1, 1, ' ', color, color);
-            }
-            1 => {
-                screen_grid.put_char(37, 1, ' ', color, color);
-                screen_grid.put_char(37, 2, ' ', color, color);
-                screen_grid.put_char(38, 1, ' ', color, color);
-                screen_grid.put_char(38, 2, ' ', color, color);
-            }
-            2 => {
-                screen_grid.put_char(1, 29, ' ', color, color);
-                screen_grid.put_char(2, 29, ' ', color, color);
-                screen_grid.put_char(1, 30, ' ', color, color);
-                screen_grid.put_char(2, 30, ' ', color, color);
-            }
-            3 => {
-                screen_grid.put_char(38, 30, ' ', color, color);
-                screen_grid.put_char(39, 30, ' ', color, color);
-                screen_grid.put_char(38, 31, ' ', color, color);
-                screen_grid.put_char(39, 31, ' ', color, color);
-            }
-            _ => {}
-        }
-
-        render_grid(display, &screen_grid);
-        delay.delay_millis(200);
-    }
-    calibration
 }

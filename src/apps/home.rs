@@ -4,7 +4,7 @@ use log::info;
 use crate::{
     apps::app::{App, AppCmd, Context},
     graphics::*,
-    input::TouchEvent,
+    touch::TouchEvent,
 };
 
 pub struct HomeApp {
@@ -35,16 +35,23 @@ impl App for HomeApp {
                 TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
                     ctx.grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
                     info!("Clicked on x: {}, y: {}", x, y);
-
-                    if x < 10 || y < 10 {
-                        return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
-                    }
                 }
                 TouchEvent::Up => {
                     info!("No longer touching.");
                 }
             }
             dirty = true;
+
+            if let Some(button_event) = ctx.buttons.update(event) {
+                match button_event {
+                    crate::input::ButtonEvent::Down(id) => {
+                        if id == "BACK" {
+                            return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
 
         if self.last_update.elapsed() > Duration::from_millis(33) {

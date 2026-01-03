@@ -1,7 +1,7 @@
 use crate::{
     apps::app::{App, AppCmd, Context},
     graphics::*,
-    input::TouchEvent,
+    touch::TouchEvent,
 };
 
 pub struct ColorApp {}
@@ -28,15 +28,17 @@ impl App for ColorApp {
         AppCmd::Dirty
     }
 
-    fn update(&mut self, event: Option<crate::input::TouchEvent>, _ctx: &mut Context) -> AppCmd {
+    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
         if let Some(event) = event {
-            match event {
-                TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
-                    if x < 10 || y < 10 {
-                        return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
+            if let Some(button_event) = ctx.buttons.update(event) {
+                match button_event {
+                    crate::input::ButtonEvent::Down(id) => {
+                        if id == "BACK" {
+                            return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
+                        }
                     }
+                    _ => {}
                 }
-                TouchEvent::Up => {}
             }
         }
         AppCmd::None

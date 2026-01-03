@@ -18,8 +18,9 @@ use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
 use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
-use pocket_computer::input::{TouchPoller, calibrate_touch};
+use pocket_computer::input::{ButtonManager, Rect};
 use pocket_computer::log::init_log;
+use pocket_computer::touch::{TouchPoller, calibrate_touch};
 
 use pocket_computer::apps::app::{App, AppCmd, Context};
 use pocket_computer::graphics::*;
@@ -117,6 +118,17 @@ fn main() -> ! {
     );
     let mut touch_poller = TouchPoller::new(touch_calibration, t_irq, touch_spi, t_cs);
 
+    let mut button_manager = ButtonManager::new();
+    button_manager.register_button(
+        "BACK",
+        Rect {
+            x_min: 0,
+            y_min: 0,
+            x_max: 20,
+            y_max: 20,
+        },
+    );
+
     // Timers
     let mut last_screen_refresh = Instant::now();
     let mut last_input = Instant::now();
@@ -124,6 +136,7 @@ fn main() -> ! {
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
         grid: &mut screen_grid,
+        buttons: &mut button_manager,
     };
 
     active_app.init(&mut ctx);

@@ -29,14 +29,14 @@ impl AppState {
 }
 
 impl App for AppState {
-    fn init(&mut self, ctx: &mut app::Context) -> app::AppCmd {
+    fn init(&mut self, ctx: &mut app::Context) -> AppCmd {
         self.app_mut().init(ctx)
     }
     fn update(
         &mut self,
-        event: Option<crate::input::TouchEvent>,
+        event: Option<crate::touch::TouchEvent>,
         ctx: &mut app::Context,
-    ) -> app::AppCmd {
+    ) -> AppCmd {
         self.app_mut().update(event, ctx)
     }
     fn render(&mut self, ctx: &mut app::Context) {
