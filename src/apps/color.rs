@@ -34,7 +34,7 @@ impl App for ColorApp {
                 match button_event {
                     crate::input::ButtonEvent::Down(id) => {
                         if id == "BACK" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
+                            return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
                         }
                     }
                     _ => {}
