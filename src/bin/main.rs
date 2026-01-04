@@ -20,7 +20,7 @@ use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{ButtonManager, Rect};
 use pocket_computer::log::init_log;
-use pocket_computer::touch::{TouchPoller, calibrate_touch};
+use pocket_computer::touch::{TouchCalibration, TouchPoller};
 
 use pocket_computer::apps::app::{App, AppCmd, Context};
 use pocket_computer::graphics::*;
@@ -89,7 +89,7 @@ fn main() -> ! {
     let mosi = peripherals.GPIO3;
 
     // XPT2046 chip select (manual CS)
-    let mut t_cs = Output::new(peripherals.GPIO2, Level::High, output_config);
+    let t_cs = Output::new(peripherals.GPIO2, Level::High, output_config);
 
     // IRQ line: active LOW when pressed
     let t_irq = Input::new(
@@ -98,7 +98,7 @@ fn main() -> ! {
     );
 
     // SPI for touch (<= 2.5 MHz, Mode0)
-    let mut touch_spi = Spi::new(
+    let touch_spi = Spi::new(
         peripherals.SPI2,
         Config::default()
             .with_frequency(Rate::from_mhz(2))
@@ -109,13 +109,8 @@ fn main() -> ! {
     .with_miso(miso)
     .with_mosi(mosi);
 
-    let touch_calibration = calibrate_touch(
-        &t_irq,
-        &mut touch_spi,
-        &mut t_cs,
-        &mut screen_grid,
-        &mut display,
-    );
+    // TODO: Load or calibrate touch here.
+    let touch_calibration = TouchCalibration::default();
     let mut touch_poller = TouchPoller::new(touch_calibration, t_irq, touch_spi, t_cs);
 
     let mut button_manager = ButtonManager::new();

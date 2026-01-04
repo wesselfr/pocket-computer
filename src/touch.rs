@@ -27,6 +27,17 @@ pub struct TouchCalibration {
     pub max_y: u16,
 }
 
+impl Default for TouchCalibration {
+    fn default() -> Self {
+        Self {
+            min_x: 314,
+            min_y: 297,
+            max_x: 3707,
+            max_y: 3656,
+        }
+    }
+}
+
 pub const X_AXIS: u8 = 0xD0;
 pub const Y_AXIS: u8 = 0x90;
 
