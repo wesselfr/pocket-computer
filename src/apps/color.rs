@@ -1,30 +1,48 @@
+use embedded_graphics::pixelcolor::Rgb565;
+use log::info;
+
 use crate::{
     apps::app::{App, AppCmd, Context},
     graphics::*,
+    input::ButtonEvent,
     touch::TouchEvent,
 };
 
-pub struct ColorApp {}
+pub struct ColorApp {
+    colors: [(&'static str, Rgb565); 8],
+    selected: u16,
+}
 
 impl Default for ColorApp {
     fn default() -> Self {
-        Self {}
+        Self {
+            colors: [
+                ("Yellow", YELLOW),
+                ("Orange", ORANGE),
+                ("Red", RED),
+                ("Magenta", MAGENTA),
+                ("Violet", VIOLET),
+                ("Blue", BLUE),
+                ("Cyan", CYAN),
+                ("Green", GREEN),
+            ],
+            selected: 0,
+        }
     }
 }
 
 impl App for ColorApp {
     fn init(&mut self, ctx: &mut Context) -> AppCmd {
-        ctx.grid.clear(' ', BASE03, BASE03);
-        for y in 0..32 {
-            ctx.grid.put_char(0, y, ' ', BASE03, YELLOW);
-            ctx.grid.put_char(1, y, ' ', BASE03, ORANGE);
-            ctx.grid.put_char(2, y, ' ', BASE03, RED);
-            ctx.grid.put_char(3, y, ' ', BASE03, MAGENTA);
-            ctx.grid.put_char(4, y, ' ', BASE03, VIOLET);
-            ctx.grid.put_char(5, y, ' ', BASE03, BLUE);
-            ctx.grid.put_char(6, y, ' ', BASE03, CYAN);
-            ctx.grid.put_char(7, y, ' ', BASE03, GREEN);
-        }
+        ctx.buttons.register_button(
+            "NEXT",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 100,
+                x_max: 400,
+                y_max: 400,
+            },
+        );
+
         AppCmd::Dirty
     }
 
@@ -32,16 +50,61 @@ impl App for ColorApp {
         if let Some(event) = event {
             if let Some(button_event) = ctx.buttons.update(event) {
                 match button_event {
-                    crate::input::ButtonEvent::Down(id) => {
+                    ButtonEvent::Down(id) => {
                         if id == "BACK" {
                             return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
                         }
                     }
-                    _ => {}
+                    ButtonEvent::Up(id) => {
+                        if id == "NEXT" {
+                            info!("NEXT");
+                            self.selected += 1;
+                            info!("SELECTED: {}", self.selected);
+                            if self.selected >= self.colors.len() as u16 {
+                                self.selected = 0;
+                                info!("RESET");
+                            }
+                            return AppCmd::Dirty;
+                        }
+                    }
                 }
             }
         }
         AppCmd::None
     }
-    fn render(&mut self, _ctx: &mut Context) {}
+    fn render(&mut self, ctx: &mut Context) {
+        ctx.grid.clear(' ', BASE03, BASE03);
+
+        let x_offset = 12;
+        let y_offset = 8;
+        for (x, color) in self.colors.iter().enumerate() {
+            for y in 0..2 {
+                ctx.grid
+                    .put_char(x_offset + x as u16 * 2, y_offset + y, ' ', BASE03, color.1);
+                ctx.grid.put_char(
+                    x_offset + x as u16 * 2 + 1,
+                    y_offset + y,
+                    ' ',
+                    BASE03,
+                    color.1,
+                );
+            }
+            if x as u16 == self.selected {
+                ctx.grid
+                    .put_char(x_offset + x as u16 * 2, y_offset + 2, '/', color.1, BASE03);
+                ctx.grid.put_char(
+                    x_offset + x as u16 * 2 + 1,
+                    y_offset + 2,
+                    '\\',
+                    color.1,
+                    BASE03,
+                );
+
+                ctx.grid
+                    .write_str(x_offset, y_offset + 4, color.0, color.1, BASE03);
+                ctx.grid
+                    .write_str(x_offset, y_offset + 5, color.0, BASE03, color.1);
+            }
+        }
+    }
 }
