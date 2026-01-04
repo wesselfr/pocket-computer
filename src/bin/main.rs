@@ -159,7 +159,7 @@ fn main() -> ! {
         // TODO: Use a power manager here.
         if last_input.elapsed() > Duration::from_secs(10) {
             // No input detected for a while. Use low power mode.
-            delay.delay_millis(1000);
+            delay.delay_millis(250);
         } else {
             // Default refresh rate
             delay.delay_millis(20);
