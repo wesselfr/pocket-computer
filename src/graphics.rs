@@ -32,6 +32,7 @@ pub struct Cell {
     pub ch: char,
     pub fg: Rgb565,
     pub bg: Rgb565,
+    pub dirty: bool,
 }
 
 impl Default for Cell {
@@ -40,6 +41,7 @@ impl Default for Cell {
             ch: ' ',
             fg: Rgb565::BLACK,
             bg: Rgb565::BLACK,
+            dirty: true,
         }
     }
 }
@@ -62,13 +64,26 @@ impl<'a> ScreenGrid<'a> {
 
     pub fn clear(&mut self, ch: char, fg: Rgb565, bg: Rgb565) {
         for cell in self.cells.iter_mut() {
-            *cell = Cell { ch, fg, bg };
+            *cell = Cell {
+                ch,
+                fg,
+                bg,
+                dirty: cell.ch != ch || cell.fg != fg || cell.bg != bg,
+            };
         }
     }
 
     pub fn put_char(&mut self, x: u16, y: u16, ch: char, fg: Rgb565, bg: Rgb565) {
         if x < self.cols && y < self.rows {
-            self.cells[self.idx(x, y)] = Cell { ch, fg, bg };
+            let cell = &mut self.cells[self.idx(x, y)];
+            if cell.ch != ch || cell.fg != fg || cell.bg != bg {
+                *cell = Cell {
+                    ch,
+                    fg,
+                    bg,
+                    dirty: true,
+                };
+            }
         }
     }
 
@@ -85,7 +100,7 @@ impl<'a> ScreenGrid<'a> {
 
 pub fn render_grid<D: DrawTarget<Color = Rgb565>>(
     display: &mut D,
-    grid: &ScreenGrid,
+    grid: &mut ScreenGrid,
 ) -> Result<(), D::Error> {
     let cell_w = 6;
     let cell_h = 10;
@@ -93,28 +108,33 @@ pub fn render_grid<D: DrawTarget<Color = Rgb565>>(
     for y in 0..grid.rows {
         for x in 0..grid.cols {
             let cell = grid.cells[grid.idx(x, y)];
-            let x_px = x as i32 * cell_w;
-            let y_px = y as i32 * cell_h;
 
-            // Draw background
-            Rectangle::new(
-                Point::new(x_px, y_px),
-                Size::new(cell_w as u32, cell_h as u32),
-            )
-            .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_fill(
-                cell.bg,
-            ))
-            .draw(display)?;
+            if cell.dirty {
+                let x_px = x as i32 * cell_w;
+                let y_px = y as i32 * cell_h;
 
-            // Draw character
-            if cell.ch != ' ' {
-                let style = MonoTextStyle::new(&FONT_6X10, cell.fg);
+                // Draw background
+                Rectangle::new(
+                    Point::new(x_px, y_px),
+                    Size::new(cell_w as u32, cell_h as u32),
+                )
+                .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_fill(
+                    cell.bg,
+                ))
+                .draw(display)?;
 
-                let mut buf = [0u8; 4]; // a char can be up to 4 UTF-8 bytes
-                let s = cell.ch.encode_utf8(&mut buf);
+                // Draw character
+                if cell.ch != ' ' {
+                    let style = MonoTextStyle::new(&FONT_6X10, cell.fg);
 
-                Text::new(s, Point::new(x_px, y_px + FONT_6X10.baseline as i32), style)
-                    .draw(display)?;
+                    let mut buf = [0u8; 4]; // a char can be up to 4 UTF-8 bytes
+                    let s = cell.ch.encode_utf8(&mut buf);
+
+                    Text::new(s, Point::new(x_px, y_px + FONT_6X10.baseline as i32), style)
+                        .draw(display)?;
+                }
+
+                grid.cells[grid.idx(x, y)].dirty = false;
             }
         }
     }

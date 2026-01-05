@@ -13,6 +13,7 @@ use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
 
+use log::info;
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
@@ -151,8 +152,10 @@ fn main() -> ! {
         };
 
         if last_screen_refresh.elapsed() > Duration::from_millis(33) || dirty {
+            let render_time = Instant::now();
             active_app.render(&mut ctx);
-            render_grid(&mut display, &ctx.grid).unwrap();
+            render_grid(&mut display, &mut ctx.grid).unwrap();
+            info!("Rendering took: {} ms", render_time.elapsed().as_millis());
             last_screen_refresh = Instant::now();
         }
 
