@@ -33,6 +33,8 @@ impl Default for ColorApp {
 
 impl App for ColorApp {
     fn init(&mut self, ctx: &mut Context) -> AppCmd {
+        ctx.buttons.clear();
+        ctx.buttons.register_default_buttons();
         ctx.buttons.register_button(
             "NEXT",
             crate::input::Rect {
@@ -50,12 +52,10 @@ impl App for ColorApp {
         if let Some(event) = event {
             if let Some(button_event) = ctx.buttons.update(event) {
                 match button_event {
-                    ButtonEvent::Down(id) => {
+                    ButtonEvent::Up(id) => {
                         if id == "BACK" {
                             return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
                         }
-                    }
-                    ButtonEvent::Up(id) => {
                         if id == "NEXT" {
                             info!("NEXT");
                             self.selected += 1;
@@ -67,6 +67,7 @@ impl App for ColorApp {
                             return AppCmd::Dirty;
                         }
                     }
+                    _ => {}
                 }
             }
         }

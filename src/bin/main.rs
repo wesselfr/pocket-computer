@@ -151,9 +151,12 @@ fn main() -> ! {
             }
         };
 
+        let dirty = dirty || ctx.buttons.is_dirty();
+
         if dirty {
             let render_time = Instant::now();
             active_app.render(&mut ctx);
+            ctx.buttons.draw_buttons(ctx.grid);
             render_grid(&mut display, &mut ctx.grid).unwrap();
             info!("Rendering took: {} ms", render_time.elapsed().as_millis());
             last_screen_refresh = Instant::now();

@@ -6,6 +6,7 @@ use embedded_graphics::{
     primitives::Rectangle,
     text::Text,
 };
+use log::info;
 
 // Background / base tones
 pub const BASE03: Rgb565 = Rgb565::new(0, 11, 7); // #002b36
@@ -26,6 +27,9 @@ pub const VIOLET: Rgb565 = Rgb565::new(13, 28, 24); // #6c71c4
 pub const BLUE: Rgb565 = Rgb565::new(5, 34, 26); // #268bd2
 pub const CYAN: Rgb565 = Rgb565::new(5, 40, 18); // #2aa198
 pub const GREEN: Rgb565 = Rgb565::new(16, 38, 0); // #859900
+
+pub const CELL_W: u16 = 6;
+pub const CELL_H: u16 = 10;
 
 #[derive(Copy, Clone)]
 pub struct Cell {
@@ -58,6 +62,7 @@ impl<'a> ScreenGrid<'a> {
         Self { cols, rows, cells }
     }
 
+    // Get cell index based on grid position
     fn idx(&self, x: u16, y: u16) -> usize {
         (y as usize) * (self.cols as usize) + (x as usize)
     }
@@ -98,25 +103,29 @@ impl<'a> ScreenGrid<'a> {
     }
 }
 
+pub fn screen_pos_to_grid_pos(x: u16, y: u16) -> (u16, u16) {
+    (
+        if x > 0 { x / CELL_W } else { 0 },
+        if y > 0 { y / CELL_H } else { 0 },
+    )
+}
+
 pub fn render_grid<D: DrawTarget<Color = Rgb565>>(
     display: &mut D,
     grid: &mut ScreenGrid,
 ) -> Result<(), D::Error> {
-    let cell_w = 6;
-    let cell_h = 10;
-
     for y in 0..grid.rows {
         for x in 0..grid.cols {
             let cell = grid.cells[grid.idx(x, y)];
 
             if cell.dirty {
-                let x_px = x as i32 * cell_w;
-                let y_px = y as i32 * cell_h;
+                let x_px = (x * CELL_W) as i32;
+                let y_px = (y * CELL_H) as i32;
 
                 // Draw background
                 Rectangle::new(
                     Point::new(x_px, y_px),
-                    Size::new(cell_w as u32, cell_h as u32),
+                    Size::new(CELL_W as u32, CELL_H as u32),
                 )
                 .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_fill(
                     cell.bg,
@@ -138,6 +147,5 @@ pub fn render_grid<D: DrawTarget<Color = Rgb565>>(
             }
         }
     }
-
     Ok(())
 }
