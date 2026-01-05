@@ -38,10 +38,10 @@ impl App for ColorApp {
         ctx.buttons.register_button(
             "NEXT",
             crate::input::Rect {
-                x_min: 0,
-                y_min: 100,
-                x_max: 400,
-                y_max: 400,
+                x_min: 120,
+                y_min: 120,
+                x_max: 172,
+                y_max: 140,
             },
         );
 

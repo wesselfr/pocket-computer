@@ -16,6 +16,7 @@ pub trait App {
 pub enum AppID {
     HomeApp,
     ColorPicker,
+    TestApp,
 }
 
 #[derive(PartialEq)]

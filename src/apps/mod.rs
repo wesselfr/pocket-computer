@@ -2,15 +2,18 @@ use crate::apps::{
     app::{App, AppCmd, AppID},
     color::ColorApp,
     home::HomeApp,
+    test::TestApp,
 };
 
 pub mod app;
 pub mod color;
 pub mod home;
+pub mod test;
 
 pub enum AppState {
     Home(HomeApp),
     Color(ColorApp),
+    Test(TestApp),
 }
 
 impl AppState {
@@ -18,12 +21,14 @@ impl AppState {
         match self {
             AppState::Home(app) => app,
             AppState::Color(app) => app,
+            AppState::Test(app) => app,
         }
     }
     pub fn switch(&self, app: AppID) -> AppState {
         match app {
             AppID::HomeApp => AppState::Home(HomeApp::default()),
             AppID::ColorPicker => AppState::Color(ColorApp::default()),
+            AppID::TestApp => AppState::Test(TestApp::default()),
         }
     }
 }
