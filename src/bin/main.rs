@@ -151,7 +151,7 @@ fn main() -> ! {
             }
         };
 
-        if last_screen_refresh.elapsed() > Duration::from_millis(33) || dirty {
+        if dirty {
             let render_time = Instant::now();
             active_app.render(&mut ctx);
             render_grid(&mut display, &mut ctx.grid).unwrap();
@@ -160,12 +160,14 @@ fn main() -> ! {
         }
 
         // TODO: Use a power manager here.
-        if last_input.elapsed() > Duration::from_secs(10) {
+        if last_input.elapsed() > Duration::from_secs(10)
+            || last_screen_refresh.elapsed() > Duration::from_secs(5)
+        {
             // No input detected for a while. Use low power mode.
             delay.delay_millis(250);
         } else {
             // Default refresh rate
-            delay.delay_millis(20);
+            delay.delay_millis(33);
         }
     }
 }

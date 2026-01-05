@@ -54,7 +54,7 @@ impl App for HomeApp {
             }
         }
 
-        if self.last_update.elapsed() > Duration::from_millis(33) {
+        if self.last_update.elapsed() > Duration::from_millis(200) {
             self.flicker = !self.flicker;
             self.count += 1;
             self.last_update = Instant::now();
