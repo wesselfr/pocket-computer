@@ -120,7 +120,7 @@ pub fn screen_pos_to_grid_pos(x: u16, y: u16) -> (u16, u16) {
 
 pub fn draw_status_bars(grid: &mut ScreenGrid, app_name: &str, render_time: u64) {
     // Title bar
-    grid.draw_box(0, 0, 40, 2, BASE01);
+    grid.draw_box(0, 0, 40, 2, BASE00);
     grid.write_str((40 - app_name.len()) as u16 / 2, 0, app_name, BASE3, BASE01);
 
     // Status bar

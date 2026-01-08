@@ -1,5 +1,5 @@
 use crate::{
-    graphics::{BASE3, MAGENTA, ScreenGrid, screen_pos_to_grid_pos},
+    graphics::{BASE01, BASE3, ScreenGrid, screen_pos_to_grid_pos},
     touch::TouchEvent,
 };
 use core::u16;
@@ -52,7 +52,7 @@ impl ButtonManager {
             Rect {
                 x_min: 0,
                 y_min: 0,
-                x_max: 20,
+                x_max: 24,
                 y_max: 20,
             },
         );
@@ -92,19 +92,15 @@ impl ButtonManager {
 
             let (fg, bg) = if let Some(active) = self.active_button {
                 if active == *button.0 {
-                    (MAGENTA, BASE3)
+                    (BASE01, BASE3)
                 } else {
-                    (BASE3, MAGENTA)
+                    (BASE3, BASE01)
                 }
             } else {
-                (BASE3, MAGENTA)
+                (BASE3, BASE01)
             };
 
-            for x in min.0..max.0 {
-                for y in min.1..max.1 {
-                    grid.put_char(x, y, ' ', bg, bg);
-                }
-            }
+            grid.draw_box(min.0, min.1, max.0 - min.0, max.1 - min.1, bg);
             grid.write_str(min.0, min.1, button.0, fg, bg);
         }
 
