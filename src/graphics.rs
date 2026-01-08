@@ -101,6 +101,14 @@ impl<'a> ScreenGrid<'a> {
             self.put_char(xi, y, ch, fg, bg);
         }
     }
+
+    pub fn draw_box(&mut self, x: u16, y: u16, width: u16, height: u16, bg: Rgb565) {
+        for x in x..x + width {
+            for y in y..y + height {
+                self.put_char(x, y, ' ', bg, bg);
+            }
+        }
+    }
 }
 
 pub fn screen_pos_to_grid_pos(x: u16, y: u16) -> (u16, u16) {
@@ -108,6 +116,22 @@ pub fn screen_pos_to_grid_pos(x: u16, y: u16) -> (u16, u16) {
         if x > 0 { x / CELL_W } else { 0 },
         if y > 0 { y / CELL_H } else { 0 },
     )
+}
+
+pub fn draw_status_bars(grid: &mut ScreenGrid, app_name: &str, render_time: u64) {
+    // Title bar
+    grid.draw_box(0, 0, 40, 2, BASE01);
+    grid.write_str((40 - app_name.len()) as u16 / 2, 0, app_name, BASE3, BASE01);
+
+    // Status bar
+    grid.draw_box(0, 31, 40, 1, CYAN);
+    grid.write_str(
+        0,
+        31,
+        &heapless::format!(12; "Render: {}ms", render_time).unwrap_or_default(),
+        BASE2,
+        CYAN,
+    );
 }
 
 pub fn render_grid<D: DrawTarget<Color = Rgb565>>(

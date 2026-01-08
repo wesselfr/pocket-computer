@@ -128,6 +128,7 @@ fn main() -> ! {
     // Timers
     let mut last_screen_refresh = Instant::now();
     let mut last_input = Instant::now();
+    let mut last_render_time = 0;
 
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
@@ -156,9 +157,12 @@ fn main() -> ! {
         if dirty {
             let render_time = Instant::now();
             active_app.render(&mut ctx);
+            draw_status_bars(&mut ctx.grid, active_app.get_name(), last_render_time);
             ctx.buttons.draw_buttons(ctx.grid);
             render_grid(&mut display, &mut ctx.grid).unwrap();
-            info!("Rendering took: {} ms", render_time.elapsed().as_millis());
+
+            last_render_time = render_time.elapsed().as_millis();
+            info!("Rendering took: {} ms", last_render_time);
             last_screen_refresh = Instant::now();
         }
 
