@@ -108,4 +108,7 @@ impl App for ColorApp {
             }
         }
     }
+    fn get_name(&self) -> &'static str {
+        "COLOR"
+    }
 }

@@ -85,4 +85,7 @@ impl App for TestApp {
             ctx.grid.clear(' ', BASE03, BASE03);
         }
     }
+    fn get_name(&self) -> &'static str {
+        "TEST"
+    }
 }

@@ -73,4 +73,7 @@ impl App for HomeApp {
         ctx.grid
             .write_str(0, 4, "Select an app to get started.", BASE2, BASE03);
     }
+    fn get_name(&self) -> &'static str {
+        "HOME"
+    }
 }

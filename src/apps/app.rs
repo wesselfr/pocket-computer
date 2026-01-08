@@ -9,6 +9,7 @@ pub trait App {
     fn init(&mut self, ctx: &mut Context) -> AppCmd;
     fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd;
     fn render(&mut self, ctx: &mut Context);
+    fn get_name(&self) -> &'static str;
 }
 
 // TODO: Generate this enum using a macro.

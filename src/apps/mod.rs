@@ -24,6 +24,13 @@ impl AppState {
             AppState::Test(app) => app,
         }
     }
+    fn app_ref(&self) -> &dyn App {
+        match self {
+            AppState::Home(app) => app,
+            AppState::Color(app) => app,
+            AppState::Test(app) => app,
+        }
+    }
     pub fn switch(&self, app: AppID) -> AppState {
         match app {
             AppID::HomeApp => AppState::Home(HomeApp::default()),
@@ -46,5 +53,8 @@ impl App for AppState {
     }
     fn render(&mut self, ctx: &mut app::Context) {
         self.app_mut().render(ctx);
+    }
+    fn get_name(&self) -> &'static str {
+        self.app_ref().get_name()
     }
 }
