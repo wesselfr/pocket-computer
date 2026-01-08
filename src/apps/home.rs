@@ -1,25 +1,14 @@
-use esp_hal::time::{Duration, Instant};
-use log::info;
-
 use crate::{
     apps::app::{App, AppCmd, Context},
     graphics::*,
     touch::TouchEvent,
 };
 
-pub struct HomeApp {
-    flicker: bool,
-    count: u16,
-    last_update: Instant,
-}
+pub struct HomeApp {}
 
 impl Default for HomeApp {
     fn default() -> Self {
-        Self {
-            flicker: false,
-            count: 0,
-            last_update: Instant::now(),
-        }
+        Self {}
     }
 }
 
