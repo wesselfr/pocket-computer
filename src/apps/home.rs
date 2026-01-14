@@ -40,7 +40,7 @@ impl App for HomeApp {
     }
     fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
         if let Some(event) = event {
-            if let Some(button_event) = ctx.buttons.update(event) {
+            if let Some(button_event) = ctx.buttons.update(&event) {
                 match button_event {
                     crate::input::ButtonEvent::Up(id) => {
                         if id == "TEST" {

@@ -46,7 +46,7 @@ impl App for TestApp {
             }
             dirty = true;
 
-            if let Some(button_event) = ctx.buttons.update(event) {
+            if let Some(button_event) = ctx.buttons.update(&event) {
                 match button_event {
                     crate::input::ButtonEvent::Up(id) => {
                         if id == "BACK" {

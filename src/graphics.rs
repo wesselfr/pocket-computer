@@ -73,7 +73,7 @@ impl<'a> ScreenGrid<'a> {
                 ch,
                 fg,
                 bg,
-                dirty: cell.ch != ch || cell.fg != fg || cell.bg != bg,
+                dirty: cell.dirty || cell.ch != ch || cell.fg != fg || cell.bg != bg,
             };
         }
     }
@@ -128,7 +128,7 @@ pub fn draw_status_bars(grid: &mut ScreenGrid, app_name: &str, render_time: u64)
     grid.write_str(
         0,
         31,
-        &heapless::format!(12; "Render: {}ms", render_time).unwrap_or_default(),
+        &heapless::format!(13; "Render: {}ms", render_time).unwrap_or_default(),
         BASE2,
         CYAN,
     );

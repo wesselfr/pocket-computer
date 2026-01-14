@@ -60,11 +60,11 @@ impl ButtonManager {
     pub fn clear(&mut self) {
         self.buttons.clear();
     }
-    pub fn update(&mut self, touch_event: TouchEvent) -> Option<ButtonEvent> {
+    pub fn update(&mut self, touch_event: &TouchEvent) -> Option<ButtonEvent> {
         match touch_event {
             TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
                 for (id, rect) in &self.buttons {
-                    if rect.inside(x, y) {
+                    if rect.inside(*x, *y) {
                         self.dirty = self.active_button != Some(*id);
                         self.active_button = Some(*id);
                         return Some(ButtonEvent::Down(*id));
