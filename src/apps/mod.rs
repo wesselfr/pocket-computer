@@ -2,17 +2,20 @@ use crate::apps::{
     app::{App, AppCmd, AppID},
     color::ColorApp,
     home::HomeApp,
+    snake::SnakeApp,
     test::TestApp,
 };
 
 pub mod app;
 pub mod color;
 pub mod home;
+pub mod snake;
 pub mod test;
 
 pub enum AppState {
     Home(HomeApp),
     Color(ColorApp),
+    Snake(SnakeApp),
     Test(TestApp),
 }
 
@@ -21,6 +24,7 @@ impl AppState {
         match self {
             AppState::Home(app) => app,
             AppState::Color(app) => app,
+            AppState::Snake(app) => app,
             AppState::Test(app) => app,
         }
     }
@@ -28,6 +32,7 @@ impl AppState {
         match self {
             AppState::Home(app) => app,
             AppState::Color(app) => app,
+            AppState::Snake(app) => app,
             AppState::Test(app) => app,
         }
     }
@@ -35,6 +40,7 @@ impl AppState {
         match app {
             AppID::HomeApp => AppState::Home(HomeApp::default()),
             AppID::ColorPicker => AppState::Color(ColorApp::default()),
+            AppID::SnakeApp => AppState::Snake(SnakeApp::default()),
             AppID::TestApp => AppState::Test(TestApp::default()),
         }
     }

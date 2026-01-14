@@ -17,6 +17,7 @@ pub trait App {
 pub enum AppID {
     HomeApp,
     ColorPicker,
+    SnakeApp,
     TestApp,
 }
 

@@ -35,6 +35,15 @@ impl App for HomeApp {
                 y_max: 110,
             },
         );
+        ctx.buttons.register_button(
+            "SNAKE",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 120,
+                x_max: 80,
+                y_max: 140,
+            },
+        );
 
         AppCmd::Dirty
     }
@@ -48,6 +57,9 @@ impl App for HomeApp {
                         }
                         if id == "COLOR" {
                             return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
+                        }
+                        if id == "SNAKE" {
+                            return AppCmd::SwitchApp(crate::apps::app::AppID::SnakeApp);
                         }
                     }
                     _ => {}
