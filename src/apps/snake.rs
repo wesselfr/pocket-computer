@@ -6,7 +6,7 @@ use crate::{
     touch::TouchEvent,
 };
 
-pub const MAX_LENGHT: usize = 40;
+pub const MAX_LENGTH: usize = 40;
 
 pub const FIELD_MIN_X: u16 = 2;
 pub const FIELD_MIN_Y: u16 = 4;
@@ -28,8 +28,8 @@ enum GameState {
 
 pub struct SnakeApp {
     last_update: Instant,
-    snake: [(u16, u16); MAX_LENGHT],
-    lenght: u16,
+    snake: [(u16, u16); MAX_LENGTH],
+    length: u16,
     dir: Direction,
     state: GameState,
     food_pos: (u16, u16),
@@ -39,8 +39,8 @@ impl Default for SnakeApp {
     fn default() -> Self {
         Self {
             last_update: Instant::now(),
-            snake: [(0, 0); MAX_LENGHT],
-            lenght: 0,
+            snake: [(0, 0); MAX_LENGTH],
+            length: 0,
             dir: Direction::East,
             state: GameState::Playing,
             food_pos: (0, 0),
@@ -51,7 +51,7 @@ impl Default for SnakeApp {
 impl SnakeApp {
     fn reset_game(&mut self) {
         self.snake[0] = (10, 10);
-        self.lenght = 1;
+        self.length = 1;
         self.dir = Direction::East;
 
         self.state = GameState::Playing;
@@ -78,7 +78,7 @@ impl SnakeApp {
         new_pos
     }
 
-    fn check_game_over(&self, snake: &[(u16, u16); MAX_LENGHT], lenght: u16) -> bool {
+    fn check_game_over(&self, snake: &[(u16, u16); MAX_LENGTH], length: u16) -> bool {
         let (head_x, head_y) = snake[0];
 
         // Check if head is inside playing field
@@ -91,7 +91,7 @@ impl SnakeApp {
         }
 
         // Check if head collide with rest of snake
-        for i in 1..lenght as usize {
+        for i in 1..length as usize {
             if head_x == snake[i].0 && head_y == snake[i].1 {
                 return true;
             }
@@ -156,7 +156,7 @@ impl App for SnakeApp {
         {
             let mut increase_score = false;
 
-            for i in (0..self.lenght).rev() {
+            for i in (0..self.length).rev() {
                 if i == 0 {
                     self.snake[0] = self.update_position(self.snake[0], &self.dir);
                     if self.snake[0].0 == self.food_pos.0 && self.snake[0].1 == self.food_pos.1 {
@@ -168,14 +168,13 @@ impl App for SnakeApp {
             }
 
             // Game Over
-            if self.check_game_over(&self.snake, self.lenght) {
+            if self.check_game_over(&self.snake, self.length) {
                 self.state = GameState::Dead;
             }
 
             if increase_score {
-                self.snake[self.lenght as usize] = self.snake[self.lenght as usize - 1];
-                self.update_position(self.snake[self.lenght as usize], &self.dir);
-                self.lenght += 1;
+                self.snake[self.length as usize] = self.snake[self.length as usize - 1];
+                self.length += 1;
 
                 self.update_food_pos();
             }
@@ -205,7 +204,7 @@ impl App for SnakeApp {
         ctx.grid.write_str(
             0,
             2,
-            &heapless::format!(9; "Score: {}", self.lenght - 1).unwrap_or_default(),
+            &heapless::format!(9; "Score: {}", self.length - 1).unwrap_or_default(),
             BASE3,
             CYAN,
         );
@@ -214,7 +213,7 @@ impl App for SnakeApp {
             ctx.grid.write_str(0, 3, "GAME OVER!", BASE3, RED);
         }
 
-        for i in 0..self.lenght {
+        for i in 0..self.length {
             let (x, y) = self.snake[i as usize];
 
             ctx.grid.put_char(x, y, 'X', VIOLET, BLUE);
