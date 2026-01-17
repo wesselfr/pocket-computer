@@ -40,6 +40,7 @@ impl Direction {
 
 #[derive(PartialEq)]
 enum GameState {
+    Start,
     Playing,
     Dead,
 }
@@ -64,7 +65,7 @@ impl Default for SnakeApp {
             score: 0,
             dir_changed: false,
             dir: Direction::East,
-            state: GameState::Playing,
+            state: GameState::Start,
             food_pos: (0, 0),
         }
     }
@@ -131,6 +132,12 @@ impl SnakeApp {
             FIELD_MIN_X + rand as u16 % (FIELD_MAX_X - FIELD_MIN_X),
             FIELD_MIN_Y + (rand as u16 / 2) % (FIELD_MAX_Y - FIELD_MIN_Y),
         );
+
+        for snake_pos in self.snake.iter().take(self.length as usize) {
+            if *snake_pos == self.food_pos {
+                return self.update_food_pos();
+            }
+        }
     }
 }
 
@@ -140,10 +147,6 @@ impl App for SnakeApp {
 
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
-
-        // Initial start
-        // TODO: Have a difficulty selection first.
-        self.reset_game();
 
         AppCmd::Dirty
     }
@@ -159,25 +162,22 @@ impl App for SnakeApp {
                     _ => {}
                 }
             } else {
-                match event {
-                    TouchEvent::Down { x, y: _ } => {
-                        // Reset Game
-                        if self.state == GameState::Dead {
-                            self.reset_game();
-                            ctx.grid.clear(' ', BASE03, BASE03);
-                            return AppCmd::Dirty;
-                        }
-
-                        if !self.dir_changed {
-                            if x < SCREEN_W / 2 {
-                                self.dir = self.dir.left()
-                            } else {
-                                self.dir = self.dir.right()
-                            }
-                            self.dir_changed = true;
-                        }
+                if let TouchEvent::Down { x, y: _ } = event {
+                    // Reset Game
+                    if self.state == GameState::Dead || self.state == GameState::Start {
+                        self.reset_game();
+                        ctx.grid.clear(' ', BASE03, BASE03);
+                        return AppCmd::Dirty;
                     }
-                    _ => {}
+
+                    if !self.dir_changed {
+                        if x < SCREEN_W / 2 {
+                            self.dir = self.dir.left()
+                        } else {
+                            self.dir = self.dir.right()
+                        }
+                        self.dir_changed = true;
+                    }
                 }
             }
         }
@@ -229,18 +229,12 @@ impl App for SnakeApp {
         }
 
         // TODO: Move score to status bar.
-        ctx.grid.write_str(
-            0,
+        ctx.grid.center_str(
             2,
             &heapless::format!(9; "Score: {}", self.score).unwrap_or_default(),
             BASE3,
             CYAN,
         );
-
-        if self.state == GameState::Dead {
-            ctx.grid.write_str(0, 3, "GAME OVER!", BASE3, RED);
-            ctx.grid.write_str(12, 20, "Click to reset", BASE3, BASE01);
-        }
 
         for i in 0..self.length {
             let (x, y) = self.snake[i as usize];
@@ -250,6 +244,21 @@ impl App for SnakeApp {
 
         ctx.grid
             .put_char(self.food_pos.0, self.food_pos.1, '#', GREEN, BASE01);
+
+        match self.state {
+            GameState::Start => {
+                ctx.grid.center_str(10, "SNAKE", BASE3, BLUE);
+
+                ctx.grid.center_str(13, "Tap to rotate", BASE1, BASE01);
+                ctx.grid.center_str(14, "<- LEFT | RIGHT ->", BASE1, BASE01);
+                ctx.grid.center_str(16, "Tap to start", BASE3, BASE01);
+            }
+            GameState::Dead => {
+                ctx.grid.center_str(14, "GAME OVER!", BASE3, RED);
+                ctx.grid.center_str(16, "Tap to reset", BASE3, BASE01);
+            }
+            _ => {}
+        }
     }
     fn get_name(&self) -> &'static str {
         "SNAKE"
