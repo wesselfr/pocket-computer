@@ -6,7 +6,7 @@ use embedded_graphics::{
     primitives::Rectangle,
     text::Text,
 };
-use log::info;
+use log::error;
 
 // Background / base tones
 pub const BASE03: Rgb565 = Rgb565::new(0, 11, 7); // #002b36
@@ -105,6 +105,17 @@ impl<'a> ScreenGrid<'a> {
         }
     }
 
+    pub fn center_str(&mut self, y: u16, s: &str, fg: Rgb565, bg: Rgb565) {
+        // Early check to make sure it fits.
+        // TODO: Split up in multiple calls.
+        if s.len() > self.cols as usize {
+            error!("String too large to center.");
+            return;
+        }
+        let x = (self.cols - s.len() as u16) / 2;
+        self.write_str(x, y, s, fg, bg);
+    }
+
     pub fn draw_box(&mut self, x: u16, y: u16, width: u16, height: u16, bg: Rgb565) {
         for x in x..x + width {
             for y in y..y + height {
@@ -124,7 +135,7 @@ pub fn screen_pos_to_grid_pos(x: u16, y: u16) -> (u16, u16) {
 pub fn draw_status_bars(grid: &mut ScreenGrid, app_name: &str, render_time: u64) {
     // Title bar
     grid.draw_box(0, 0, 40, 2, BASE00);
-    grid.write_str((40 - app_name.len()) as u16 / 2, 0, app_name, BASE3, BASE01);
+    grid.center_str(0, app_name, BASE3, BASE00);
 
     // Status bar
     grid.draw_box(0, 31, 40, 1, CYAN);
