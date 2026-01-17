@@ -81,8 +81,8 @@ fn main() -> ! {
         .init(&mut delay)
         .unwrap();
 
-    let mut screen_buffer = [Cell::default(); (240 / 6) * (320 / 10)];
-    let mut screen_grid = ScreenGrid::new(240 / 6, 320 / 10, &mut screen_buffer);
+    let mut screen_buffer = [Cell::default(); ((SCREEN_W / CELL_W) * (SCREEN_H / CELL_H)) as usize];
+    let mut screen_grid = ScreenGrid::new(SCREEN_W / CELL_W, SCREEN_H / CELL_H, &mut screen_buffer);
 
     // --- Touch SPI pins ---
     let sclk = peripherals.GPIO1;

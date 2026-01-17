@@ -28,6 +28,9 @@ pub const BLUE: Rgb565 = Rgb565::new(5, 34, 26); // #268bd2
 pub const CYAN: Rgb565 = Rgb565::new(5, 40, 18); // #2aa198
 pub const GREEN: Rgb565 = Rgb565::new(16, 38, 0); // #859900
 
+pub const SCREEN_W: u16 = 240;
+pub const SCREEN_H: u16 = 320;
+
 pub const CELL_W: u16 = 6;
 pub const CELL_H: u16 = 10;
 
