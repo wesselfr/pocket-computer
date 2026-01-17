@@ -83,6 +83,15 @@ impl SnakeApp {
         self.update_food_pos();
     }
 
+    fn draw_field(&self, ctx: &mut Context) {
+        // Playing field.
+        for grid_x in FIELD_MIN_X..FIELD_MAX_X {
+            for grid_y in FIELD_MIN_Y..FIELD_MAX_Y {
+                ctx.grid.put_char(grid_x, grid_y, ' ', BASE01, BASE01);
+            }
+        }
+    }
+
     fn update_position(&self, old_pos: (u16, u16), dir: &Direction) -> (u16, u16) {
         let mut new_pos = old_pos;
         match dir {
@@ -167,6 +176,7 @@ impl App for SnakeApp {
                     if self.state == GameState::Dead || self.state == GameState::Start {
                         self.reset_game();
                         ctx.grid.clear(' ', BASE03, BASE03);
+                        self.draw_field(ctx);
                         return AppCmd::Dirty;
                     }
 
@@ -189,14 +199,26 @@ impl App for SnakeApp {
             self.dir_changed = false;
 
             for i in (0..self.length).rev() {
+                let old_pos = self.snake[i as usize];
                 if i == 0 {
                     self.snake[0] = self.update_position(self.snake[0], &self.dir);
                     if self.snake[0].0 == self.food_pos.0 && self.snake[0].1 == self.food_pos.1 {
                         increase_score = true;
                     }
+
+                    let snake_pos = self.snake[i as usize];
+                    ctx.grid.put_char(snake_pos.0, snake_pos.1, ' ', BLUE, BLUE);
                 } else {
                     self.snake[i as usize] = self.snake[i as usize - 1];
                 }
+
+                ctx.grid.put_char(
+                    old_pos.0,
+                    old_pos.1,
+                    ' ',
+                    BLUE,
+                    if i == self.length - 1 { BASE01 } else { BLUE },
+                );
             }
 
             // Game Over
@@ -221,26 +243,12 @@ impl App for SnakeApp {
         AppCmd::None
     }
     fn render(&mut self, ctx: &mut Context) {
-        // Playing field.
-        for grid_x in FIELD_MIN_X..FIELD_MAX_X {
-            for grid_y in FIELD_MIN_Y..FIELD_MAX_Y {
-                ctx.grid.put_char(grid_x, grid_y, ' ', BASE01, BASE01);
-            }
-        }
-
-        // TODO: Move score to status bar.
         ctx.grid.center_str(
             2,
             &heapless::format!(9; "Score: {}", self.score).unwrap_or_default(),
             BASE3,
             CYAN,
         );
-
-        for i in 0..self.length {
-            let (x, y) = self.snake[i as usize];
-
-            ctx.grid.put_char(x, y, 'X', VIOLET, BLUE);
-        }
 
         ctx.grid
             .put_char(self.food_pos.0, self.food_pos.1, '#', GREEN, BASE01);
