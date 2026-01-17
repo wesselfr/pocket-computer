@@ -1,12 +1,11 @@
-use esp_hal::time::{Duration, Instant};
-
 use crate::{
     apps::app::{App, AppCmd, Context},
     graphics::*,
     touch::TouchEvent,
 };
+use esp_hal::time::{Duration, Instant};
 
-pub const MAX_LENGTH: usize = 40;
+pub const MAX_LENGTH: usize = 256;
 
 pub const FIELD_MIN_X: u16 = 2;
 pub const FIELD_MIN_Y: u16 = 4;
@@ -20,6 +19,25 @@ enum Direction {
     West,
 }
 
+impl Direction {
+    fn left(&self) -> Self {
+        match self {
+            Direction::North => Direction::West,
+            Direction::East => Direction::North,
+            Direction::South => Direction::East,
+            Direction::West => Direction::South,
+        }
+    }
+    fn right(&self) -> Self {
+        match self {
+            Direction::North => Direction::East,
+            Direction::East => Direction::South,
+            Direction::South => Direction::West,
+            Direction::West => Direction::North,
+        }
+    }
+}
+
 #[derive(PartialEq)]
 enum GameState {
     Playing,
@@ -30,6 +48,8 @@ pub struct SnakeApp {
     last_update: Instant,
     snake: [(u16, u16); MAX_LENGTH],
     length: u16,
+    score: u16,
+    dir_changed: bool,
     dir: Direction,
     state: GameState,
     food_pos: (u16, u16),
@@ -41,6 +61,8 @@ impl Default for SnakeApp {
             last_update: Instant::now(),
             snake: [(0, 0); MAX_LENGTH],
             length: 0,
+            score: 0,
+            dir_changed: false,
             dir: Direction::East,
             state: GameState::Playing,
             food_pos: (0, 0),
@@ -54,6 +76,7 @@ impl SnakeApp {
         self.length = 1;
         self.dir = Direction::East;
 
+        self.score = 0;
         self.state = GameState::Playing;
 
         self.update_food_pos();
@@ -63,16 +86,16 @@ impl SnakeApp {
         let mut new_pos = old_pos;
         match dir {
             Direction::North => {
-                new_pos.0 -= 1;
+                new_pos.1 -= 1;
             }
             Direction::East => {
-                new_pos.1 += 1;
-            }
-            Direction::South => {
                 new_pos.0 += 1;
             }
+            Direction::South => {
+                new_pos.1 += 1;
+            }
             Direction::West => {
-                new_pos.1 -= 1;
+                new_pos.0 -= 1;
             }
         }
         new_pos
@@ -137,13 +160,21 @@ impl App for SnakeApp {
                 }
             } else {
                 match event {
-                    TouchEvent::Up => {
-                        // HACK: Direction change test.
-                        self.dir = match self.dir {
-                            Direction::North => Direction::East,
-                            Direction::East => Direction::South,
-                            Direction::South => Direction::West,
-                            Direction::West => Direction::North,
+                    TouchEvent::Down { x, y: _ } => {
+                        // Reset Game
+                        if self.state == GameState::Dead {
+                            self.reset_game();
+                            ctx.grid.clear(' ', BASE03, BASE03);
+                            return AppCmd::Dirty;
+                        }
+
+                        if !self.dir_changed {
+                            if x < SCREEN_W / 2 {
+                                self.dir = self.dir.left()
+                            } else {
+                                self.dir = self.dir.right()
+                            }
+                            self.dir_changed = true;
                         }
                     }
                     _ => {}
@@ -155,6 +186,7 @@ impl App for SnakeApp {
             && self.state == GameState::Playing
         {
             let mut increase_score = false;
+            self.dir_changed = false;
 
             for i in (0..self.length).rev() {
                 if i == 0 {
@@ -173,21 +205,17 @@ impl App for SnakeApp {
             }
 
             if increase_score {
-                self.snake[self.length as usize] = self.snake[self.length as usize - 1];
-                self.length += 1;
+                self.score += 1;
+
+                if self.length < MAX_LENGTH as u16 {
+                    self.snake[self.length as usize] = self.snake[self.length as usize - 1];
+                    self.length += 1;
+                }
 
                 self.update_food_pos();
             }
 
             self.last_update = Instant::now();
-            return AppCmd::Dirty;
-        }
-
-        // Reset Game
-        if self.last_update.elapsed() > Duration::from_millis(1500) && self.state == GameState::Dead
-        {
-            self.reset_game();
-            ctx.grid.clear(' ', BASE03, BASE03);
             return AppCmd::Dirty;
         }
         AppCmd::None
@@ -204,13 +232,14 @@ impl App for SnakeApp {
         ctx.grid.write_str(
             0,
             2,
-            &heapless::format!(9; "Score: {}", self.length - 1).unwrap_or_default(),
+            &heapless::format!(9; "Score: {}", self.score).unwrap_or_default(),
             BASE3,
             CYAN,
         );
 
         if self.state == GameState::Dead {
             ctx.grid.write_str(0, 3, "GAME OVER!", BASE3, RED);
+            ctx.grid.write_str(12, 20, "Click to reset", BASE3, BASE01);
         }
 
         for i in 0..self.length {
