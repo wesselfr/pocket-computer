@@ -1,7 +1,6 @@
 use crate::{
-    apps::app::{App, AppCmd, Context},
+    apps::app::{App, AppID, AppResponse, Context, InputEvents},
     graphics::*,
-    touch::TouchEvent,
 };
 
 pub struct HomeApp {}
@@ -13,7 +12,7 @@ impl Default for HomeApp {
 }
 
 impl App for HomeApp {
-    fn init(&mut self, ctx: &mut Context) -> AppCmd {
+    fn init(&mut self, ctx: &mut Context) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
         ctx.buttons.clear();
 
@@ -44,30 +43,40 @@ impl App for HomeApp {
                 y_max: 140,
             },
         );
+        ctx.buttons.register_button(
+            "SETTINGS",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 150,
+                x_max: 80,
+                y_max: 170,
+            },
+        );
 
-        AppCmd::Dirty
+        AppResponse::dirty()
     }
-    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
-        if let Some(event) = event {
-            if let Some(button_event) = ctx.buttons.update(&event) {
-                match button_event {
-                    crate::input::ButtonEvent::Up(id) => {
-                        if id == "TEST" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::TestApp);
-                        }
-                        if id == "COLOR" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::ColorPicker);
-                        }
-                        if id == "SNAKE" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::SnakeApp);
-                        }
+    fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
+        if let Some(button_event) = input.button {
+            match button_event {
+                crate::input::ButtonEvent::Up(id) => {
+                    if id == "TEST" {
+                        return AppResponse::switch(AppID::TestApp);
                     }
-                    _ => {}
+                    if id == "COLOR" {
+                        return AppResponse::switch(AppID::ColorPicker);
+                    }
+                    if id == "SNAKE" {
+                        return AppResponse::switch(AppID::SnakeApp);
+                    }
+                    if id == "SETTINGS" {
+                        return AppResponse::switch(AppID::SettingsApp);
+                    }
                 }
+                _ => {}
             }
         }
 
-        AppCmd::None
+        AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
         ctx.grid.write_str(0, 3, "Welcome!", BASE3, BASE03);

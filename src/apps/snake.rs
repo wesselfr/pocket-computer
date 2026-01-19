@@ -1,5 +1,5 @@
 use crate::{
-    apps::app::{App, AppCmd, Context},
+    apps::app::{App, AppResponse, Context, InputEvents},
     graphics::*,
     touch::TouchEvent,
 };
@@ -151,44 +151,31 @@ impl SnakeApp {
 }
 
 impl App for SnakeApp {
-    fn init(&mut self, ctx: &mut Context) -> AppCmd {
+    fn init(&mut self, ctx: &mut Context) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
 
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
 
-        AppCmd::Dirty
+        AppResponse::dirty()
     }
-    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
-        if let Some(event) = event {
-            if let Some(button_event) = ctx.buttons.update(&event) {
-                match button_event {
-                    crate::input::ButtonEvent::Up(id) => {
-                        if id == "BACK" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
-                        }
-                    }
-                    _ => {}
-                }
-            } else {
-                if let TouchEvent::Down { x, y: _ } = event {
-                    // Reset Game
-                    if self.state == GameState::Dead || self.state == GameState::Start {
-                        self.reset_game();
-                        ctx.grid.clear(' ', BASE03, BASE03);
-                        self.draw_field(ctx);
-                        return AppCmd::Dirty;
-                    }
+    fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse {
+        if let Some(TouchEvent::Down { x, y: _ }) = input.touch {
+            // Reset Game
+            if self.state == GameState::Dead || self.state == GameState::Start {
+                self.reset_game();
+                ctx.grid.clear(' ', BASE03, BASE03);
+                self.draw_field(ctx);
+                return AppResponse::dirty();
+            }
 
-                    if !self.dir_changed {
-                        if x < SCREEN_W / 2 {
-                            self.dir = self.dir.left()
-                        } else {
-                            self.dir = self.dir.right()
-                        }
-                        self.dir_changed = true;
-                    }
+            if !self.dir_changed {
+                if x < SCREEN_W / 2 {
+                    self.dir = self.dir.left()
+                } else {
+                    self.dir = self.dir.right()
                 }
+                self.dir_changed = true;
             }
         }
 
@@ -238,9 +225,9 @@ impl App for SnakeApp {
             }
 
             self.last_update = Instant::now();
-            return AppCmd::Dirty;
+            return AppResponse::dirty();
         }
-        AppCmd::None
+        AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
         ctx.grid.center_str(

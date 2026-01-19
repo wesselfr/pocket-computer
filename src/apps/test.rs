@@ -2,7 +2,7 @@ use esp_hal::time::{Duration, Instant};
 use log::info;
 
 use crate::{
-    apps::app::{App, AppCmd, Context},
+    apps::app::{App, AppResponse, Context, InputEvents},
     graphics::*,
     touch::TouchEvent,
 };
@@ -24,20 +24,21 @@ impl Default for TestApp {
 }
 
 impl App for TestApp {
-    fn init(&mut self, ctx: &mut Context) -> AppCmd {
+    fn init(&mut self, ctx: &mut Context) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
 
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
 
-        AppCmd::Dirty
+        AppResponse::dirty()
     }
-    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
+    fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse {
         let mut dirty = false;
-        if let Some(event) = event {
+
+        if let Some(event) = input.touch {
             match event {
                 TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
-                    ctx.grid.put_char(x / 6, y / 10, 'X', RED, VIOLET);
+                    ctx.grid.put_char(x / CELL_W, y / CELL_H, 'X', RED, VIOLET);
                     info!("Clicked on x: {}, y: {}", x, y);
                 }
                 TouchEvent::Up => {
@@ -45,17 +46,6 @@ impl App for TestApp {
                 }
             }
             dirty = true;
-
-            if let Some(button_event) = ctx.buttons.update(&event) {
-                match button_event {
-                    crate::input::ButtonEvent::Up(id) => {
-                        if id == "BACK" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
-                        }
-                    }
-                    _ => {}
-                }
-            }
         }
 
         if self.last_update.elapsed() > Duration::from_millis(200) {
@@ -66,9 +56,9 @@ impl App for TestApp {
         }
 
         if dirty {
-            return AppCmd::Dirty;
+            return AppResponse::dirty();
         }
-        AppCmd::None
+        AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
         if self.flicker {

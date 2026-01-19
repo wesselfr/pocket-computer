@@ -19,11 +19,11 @@ use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
 use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
-use pocket_computer::input::ButtonManager;
+use pocket_computer::input::{ButtonEvent, ButtonManager};
 use pocket_computer::log::init_log;
 use pocket_computer::touch::{TouchCalibration, TouchPoller};
 
-use pocket_computer::apps::app::{App, AppCmd, Context};
+use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents};
 use pocket_computer::graphics::*;
 
 #[panic_handler]
@@ -130,17 +130,39 @@ fn main() -> ! {
 
     active_app.init(&mut ctx);
     loop {
-        let event = touch_poller.poll();
-        if event.is_some() {
+        let touch_event = touch_poller.poll();
+        if touch_event.is_some() {
             last_input = Instant::now();
         }
+        let button_event = if let Some(touch_event) = &touch_event {
+            ctx.buttons.update(touch_event)
+        } else {
+            None
+        };
 
-        let dirty = match active_app.update(event, &mut ctx) {
+        let mut dirty = false;
+        // Check navigation buttons
+        if let Some(ButtonEvent::Up(id)) = button_event {
+            if id == "BACK" {
+                active_app = active_app.switch(pocket_computer::apps::app::AppID::HomeApp);
+                dirty = active_app.init(&mut ctx).app == AppCmd::Dirty;
+            }
+        };
+
+        let response = active_app.update(
+            InputEvents {
+                touch: touch_event,
+                button: button_event,
+            },
+            &mut ctx,
+        );
+
+        dirty |= match response.app {
             AppCmd::None => false,
             AppCmd::Dirty => true,
             AppCmd::SwitchApp(app) => {
                 active_app = active_app.switch(app);
-                active_app.init(&mut ctx) == AppCmd::Dirty
+                active_app.init(&mut ctx).app == AppCmd::Dirty
             }
         };
 

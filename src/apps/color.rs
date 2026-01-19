@@ -2,10 +2,9 @@ use embedded_graphics::pixelcolor::Rgb565;
 use log::info;
 
 use crate::{
-    apps::app::{App, AppCmd, Context},
+    apps::app::{App, AppResponse, Context, InputEvents},
     graphics::*,
     input::ButtonEvent,
-    touch::TouchEvent,
 };
 
 pub struct ColorApp {
@@ -32,7 +31,7 @@ impl Default for ColorApp {
 }
 
 impl App for ColorApp {
-    fn init(&mut self, ctx: &mut Context) -> AppCmd {
+    fn init(&mut self, ctx: &mut Context) -> AppResponse {
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
         ctx.buttons.register_button(
@@ -45,33 +44,28 @@ impl App for ColorApp {
             },
         );
 
-        AppCmd::Dirty
+        AppResponse::dirty()
     }
 
-    fn update(&mut self, event: Option<TouchEvent>, ctx: &mut Context) -> AppCmd {
-        if let Some(event) = event {
-            if let Some(button_event) = ctx.buttons.update(&event) {
-                match button_event {
-                    ButtonEvent::Up(id) => {
-                        if id == "BACK" {
-                            return AppCmd::SwitchApp(crate::apps::app::AppID::HomeApp);
+    fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
+        if let Some(button_event) = input.button {
+            match button_event {
+                ButtonEvent::Up(id) => {
+                    if id == "NEXT" {
+                        info!("NEXT");
+                        self.selected += 1;
+                        info!("SELECTED: {}", self.selected);
+                        if self.selected >= self.colors.len() as u16 {
+                            self.selected = 0;
+                            info!("RESET");
                         }
-                        if id == "NEXT" {
-                            info!("NEXT");
-                            self.selected += 1;
-                            info!("SELECTED: {}", self.selected);
-                            if self.selected >= self.colors.len() as u16 {
-                                self.selected = 0;
-                                info!("RESET");
-                            }
-                            return AppCmd::Dirty;
-                        }
+                        return AppResponse::dirty();
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
-        AppCmd::None
+        AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
         ctx.grid.clear(' ', BASE03, BASE03);
