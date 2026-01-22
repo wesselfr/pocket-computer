@@ -33,6 +33,7 @@ pub enum AppCmd {
     SwitchApp(AppID),
 }
 
+#[derive(PartialEq)]
 pub struct InputEvents {
     pub touch: Option<TouchEvent>,
     pub button: Option<ButtonEvent>,

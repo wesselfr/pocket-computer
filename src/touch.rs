@@ -14,6 +14,7 @@ use embedded_graphics::prelude::DrawTarget;
 use esp_hal::DriverMode;
 use log::info;
 
+#[derive(PartialEq)]
 pub enum TouchEvent {
     Down { x: u16, y: u16 },
     Move { x: u16, y: u16 },

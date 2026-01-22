@@ -7,6 +7,7 @@ use heapless::index_map::FnvIndexMap;
 
 pub type ButtonId = &'static str;
 
+#[derive(PartialEq)]
 pub enum ButtonEvent {
     Down(ButtonId),
     Up(ButtonId),
