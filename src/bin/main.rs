@@ -24,17 +24,13 @@ use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{ButtonEvent, ButtonManager};
 use pocket_computer::log::init_log;
+use pocket_computer::system::SystemCmd;
 use pocket_computer::touch::{TouchCalibration, TouchPoller};
 
-use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents, SystemCmd};
+use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents};
 use pocket_computer::graphics::*;
 
 fn set_backlight_u8(ch: &mut esp_hal::ledc::channel::Channel<'_, LowSpeed>, value: u8) {
-    // let value = if value >= 255 { 254 } else { value };
-    info!("Val: {}", value);
-    // let max: u32 = (1 << 10) - 1;
-    // let duty = ((value as u32 * max) / 255) as u8;
-
     let value = if value == 100 { 99 } else { value };
     let res = ch.set_duty(value);
     match res {

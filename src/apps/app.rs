@@ -1,7 +1,8 @@
 use crate::{
     graphics::ScreenGrid,
     input::{ButtonEvent, ButtonManager},
-    touch::{TouchCalibration, TouchEvent},
+    system::SystemCmd,
+    touch::TouchEvent,
 };
 
 pub struct Context<'a> {
@@ -37,13 +38,6 @@ pub enum AppCmd {
 pub struct InputEvents {
     pub touch: Option<TouchEvent>,
     pub button: Option<ButtonEvent>,
-}
-
-// HACK: Move out of here..
-pub enum SystemCmd {
-    StartCalibration,
-    ApplyCalibration(TouchCalibration),
-    SetBrightness(u8),
 }
 
 pub struct AppResponse {

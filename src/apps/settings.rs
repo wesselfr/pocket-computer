@@ -4,6 +4,7 @@ use crate::{
     apps::app::{App, AppResponse, Context, InputEvents},
     graphics::*,
     input::{ButtonEvent, Rect},
+    system::SystemCmd,
 };
 
 pub const GIT_HASH: &str = match option_env!("GIT_HASH") {
@@ -64,17 +65,13 @@ impl App for SettingsApp {
                 if self.screen_brightness <= 90 {
                     self.screen_brightness += 10;
                 }
-                return AppResponse::system(super::app::SystemCmd::SetBrightness(
-                    self.screen_brightness,
-                ));
+                return AppResponse::system(SystemCmd::SetBrightness(self.screen_brightness));
             }
             if id == "BRIGHTNESS_DOWN" {
                 if self.screen_brightness > 10 {
                     self.screen_brightness -= 10;
                 }
-                return AppResponse::system(super::app::SystemCmd::SetBrightness(
-                    self.screen_brightness,
-                ));
+                return AppResponse::system(SystemCmd::SetBrightness(self.screen_brightness));
             }
         };
 
