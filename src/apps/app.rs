@@ -43,6 +43,7 @@ pub struct InputEvents {
 pub enum SystemCmd {
     StartCalibration,
     ApplyCalibration(TouchCalibration),
+    SetBrightness(u8),
 }
 
 pub struct AppResponse {

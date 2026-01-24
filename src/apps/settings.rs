@@ -3,6 +3,7 @@ use esp_hal::time::{Duration, Instant};
 use crate::{
     apps::app::{App, AppResponse, Context, InputEvents},
     graphics::*,
+    input::{ButtonEvent, Rect},
 };
 
 pub const GIT_HASH: &str = match option_env!("GIT_HASH") {
@@ -13,6 +14,7 @@ pub const GIT_HASH: &str = match option_env!("GIT_HASH") {
 pub struct SettingsApp {
     last_input_events: InputEvents,
     last_update: Instant,
+    screen_brightness: u8,
 }
 
 impl Default for SettingsApp {
@@ -23,6 +25,7 @@ impl Default for SettingsApp {
                 button: None,
             },
             last_update: Instant::now(),
+            screen_brightness: 100,
         }
     }
 }
@@ -34,9 +37,47 @@ impl App for SettingsApp {
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
 
+        ctx.buttons.register_button(
+            "BRIGHTNESS_DOWN",
+            Rect {
+                x_min: 0,
+                y_min: 11 * CELL_H,
+                x_max: 15 * CELL_W,
+                y_max: 12 * CELL_H,
+            },
+        );
+        ctx.buttons.register_button(
+            "BRIGHTNESS_UP",
+            Rect {
+                x_min: 0,
+                y_min: 13 * CELL_H,
+                x_max: 15 * CELL_W,
+                y_max: 14 * CELL_H,
+            },
+        );
+
         AppResponse::dirty()
     }
     fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
+        if let Some(ButtonEvent::Up(id)) = input.button {
+            if id == "BRIGHTNESS_UP" {
+                if self.screen_brightness <= 90 {
+                    self.screen_brightness += 10;
+                }
+                return AppResponse::system(super::app::SystemCmd::SetBrightness(
+                    self.screen_brightness,
+                ));
+            }
+            if id == "BRIGHTNESS_DOWN" {
+                if self.screen_brightness > 10 {
+                    self.screen_brightness -= 10;
+                }
+                return AppResponse::system(super::app::SystemCmd::SetBrightness(
+                    self.screen_brightness,
+                ));
+            }
+        };
+
         if self.last_input_events != input {
             self.last_input_events = input;
             self.last_update = Instant::now();
@@ -101,6 +142,14 @@ impl App for SettingsApp {
             "None"
         };
         ctx.grid.write_str(0, 9, touch, BASE3, BASE03);
+
+        ctx.grid.write_str(
+            0,
+            12,
+            &heapless::format!(32; "Brightness: {:03}", self.screen_brightness).unwrap_or_default(),
+            BASE3,
+            BASE03,
+        );
     }
     fn get_name(&self) -> &'static str {
         "SETTINGS"

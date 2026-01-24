@@ -9,11 +9,14 @@
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
+use esp_hal::ledc::channel::{ChannelHW, ChannelIFace};
+use esp_hal::ledc::timer::*;
+use esp_hal::ledc::{Ledc, LowSpeed};
 use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
 
-use log::info;
+use log::{error, info};
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
 use mipidsi::{Builder, models::ST7789, options::ColorOrder};
@@ -23,8 +26,24 @@ use pocket_computer::input::{ButtonEvent, ButtonManager};
 use pocket_computer::log::init_log;
 use pocket_computer::touch::{TouchCalibration, TouchPoller};
 
-use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents};
+use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents, SystemCmd};
 use pocket_computer::graphics::*;
+
+fn set_backlight_u8(ch: &mut esp_hal::ledc::channel::Channel<'_, LowSpeed>, value: u8) {
+    // let value = if value >= 255 { 254 } else { value };
+    info!("Val: {}", value);
+    // let max: u32 = (1 << 10) - 1;
+    // let duty = ((value as u32 * max) / 255) as u8;
+
+    let value = if value == 100 { 99 } else { value };
+    let res = ch.set_duty(value);
+    match res {
+        Ok(_) => {}
+        Err(e) => error!("{:?}", e),
+    }
+
+    ch.configure_hw().expect("Failed to configure..");
+}
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -128,7 +147,42 @@ fn main() -> ! {
         buttons: &mut button_manager,
     };
 
+    // HACK: BACKLIGHT TEST
+    let mut ledc = Ledc::new(peripherals.LEDC);
+    ledc.set_global_slow_clock(esp_hal::ledc::LSGlobalClkSource::APBClk);
+
+    info!("LEDC");
+
+    let mut lstimer0 = ledc.timer::<LowSpeed>(esp_hal::ledc::timer::Number::Timer0);
+    lstimer0
+        .configure(esp_hal::ledc::timer::config::Config {
+            duty: esp_hal::ledc::timer::config::Duty::Duty10Bit,
+            clock_source: esp_hal::ledc::timer::LSClockSource::APBClk,
+            frequency: Rate::from_khz(20),
+        })
+        .expect("Failed to create Timer..");
+
+    info!("TIMER");
+
+    let mut channel0: esp_hal::ledc::channel::Channel<'_, LowSpeed> =
+        esp_hal::ledc::channel::Channel::new(
+            esp_hal::ledc::channel::Number::Channel0,
+            _lcd_backlight,
+        );
+
+    info!("CHANNEL");
+
+    channel0
+        .configure(esp_hal::ledc::channel::config::Config {
+            timer: &lstimer0,
+            duty_pct: 100,
+            drive_mode: esp_hal::gpio::DriveMode::PushPull,
+        })
+        .unwrap();
+
+    let mut brightness = 100;
     active_app.init(&mut ctx);
+    set_backlight_u8(&mut channel0, brightness);
     loop {
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {
@@ -166,6 +220,17 @@ fn main() -> ! {
             }
         };
 
+        if let Some(cmd) = response.system {
+            match cmd {
+                SystemCmd::SetBrightness(val) => {
+                    brightness = val;
+                    set_backlight_u8(&mut channel0, brightness);
+                    lstimer0.update_hw();
+                }
+                _ => {}
+            }
+        }
+
         let dirty = dirty || ctx.buttons.is_dirty();
 
         if dirty {
@@ -180,15 +245,15 @@ fn main() -> ! {
             last_screen_refresh = Instant::now();
         }
 
-        // TODO: Use a power manager here.
-        if last_input.elapsed() > Duration::from_secs(10)
-            || last_screen_refresh.elapsed() > Duration::from_secs(5)
-        {
-            // No input detected for a while. Use low power mode.
-            delay.delay_millis(250);
+        let idle = last_input.elapsed() > Duration::from_secs(10)
+            || last_screen_refresh.elapsed() > Duration::from_secs(5);
+
+        if idle {
+            set_backlight_u8(&mut channel0, brightness / 2);
         } else {
-            // Default refresh rate
-            delay.delay_millis(33);
+            set_backlight_u8(&mut channel0, brightness);
         }
+
+        delay.delay_millis(if idle { 250 } else { 33 });
     }
 }
