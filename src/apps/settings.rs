@@ -89,7 +89,7 @@ impl App for SettingsApp {
         AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
-        ctx.grid.write_str(0, 3, "> ABOUT:", BASE3, BASE02);
+        ctx.grid.write_str(0, 3, "> ABOUT <", BASE3, BASE02);
         ctx.grid.write_str(
             0,
             4,
@@ -126,7 +126,7 @@ impl App for SettingsApp {
             BASE03,
         );
 
-        ctx.grid.write_str(0, 8, "> DEBUG:", BASE3, BASE02);
+        ctx.grid.write_str(0, 8, "> DEBUG <", BASE3, BASE02);
         let touch = if let Some(touch) = &self.last_input_events.touch {
             match touch {
                 crate::touch::TouchEvent::Down { x, y } => {
@@ -145,7 +145,7 @@ impl App for SettingsApp {
         ctx.grid.write_str(
             0,
             12,
-            &heapless::format!(32; "Brightness: {:03}", ctx.settings.read(|s| s.user_brightness))
+            &heapless::format!(32; "Brightness: {:03}", ctx.settings.read(|s| s.effective_brightness))
                 .unwrap_or_default(),
             BASE3,
             BASE03,

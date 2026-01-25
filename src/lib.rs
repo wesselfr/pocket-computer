@@ -4,5 +4,6 @@ pub mod display;
 pub mod graphics;
 pub mod input;
 pub mod log;
+pub mod power;
 pub mod system;
 pub mod touch;

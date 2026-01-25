@@ -10,12 +10,18 @@ pub enum SystemCmd {
 
 pub struct SystemSettings {
     pub user_brightness: u8,
+    pub effective_brightness: u8,
+    pub sleep_time: u64,
+    pub idle_time: u64,
 }
 
 impl Default for SystemSettings {
     fn default() -> Self {
         SystemSettings {
             user_brightness: 100,
+            effective_brightness: 100,
+            sleep_time: 60,
+            idle_time: 10,
         }
     }
 }

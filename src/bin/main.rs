@@ -7,13 +7,13 @@
 )]
 
 use esp_hal::clock::CpuClock;
-use esp_hal::delay::Delay;
 use esp_hal::gpio::OutputConfig;
 use esp_hal::ledc::timer::*;
 use esp_hal::ledc::{Ledc, LowSpeed};
 use esp_hal::main;
-use esp_hal::time::{Duration, Instant, Rate};
+use esp_hal::time::{Instant, Rate};
 use pocket_computer::display::{DisplayDriver, DisplayPins};
+use pocket_computer::power::{PowerManager, PowerMode};
 
 use core::cell::RefCell;
 use log::info;
@@ -96,12 +96,10 @@ fn main() -> ! {
     button_manager.register_default_buttons();
 
     // Timers
-    let mut last_screen_refresh = Instant::now();
-    let mut last_input = Instant::now();
     let mut last_render_time = 0;
-    let delay = Delay::new();
 
     let settings = RefCell::new(SystemSettings::default());
+    let mut power_manager = PowerManager::new();
 
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
@@ -113,9 +111,10 @@ fn main() -> ! {
     active_app.init(&mut ctx);
     display_driver.set_backlight(settings.borrow().user_brightness);
     loop {
+        let update_time = Instant::now();
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {
-            last_input = Instant::now();
+            power_manager.register_activity();
         }
         let button_event = if let Some(touch_event) = &touch_event {
             ctx.buttons.update(touch_event)
@@ -163,7 +162,7 @@ fn main() -> ! {
 
         let dirty = dirty || ctx.buttons.is_dirty();
 
-        if dirty {
+        if dirty && power_manager.get_power_mode() != PowerMode::Sleep {
             let render_time = Instant::now();
             active_app.render(&mut ctx);
             draw_status_bars(&mut ctx.grid, active_app.get_name(), last_render_time);
@@ -172,18 +171,19 @@ fn main() -> ! {
 
             last_render_time = render_time.elapsed().as_millis();
             info!("Rendering took: {} ms", last_render_time);
-            last_screen_refresh = Instant::now();
         }
 
-        let idle = last_input.elapsed() > Duration::from_secs(10)
-            || last_screen_refresh.elapsed() > Duration::from_secs(5);
-
-        if idle {
-            display_driver.set_backlight(settings.borrow().user_brightness / 2);
-        } else {
-            display_driver.set_backlight(settings.borrow().user_brightness);
+        // TODO: Handle system cmd's in a uniform way
+        if let Some(cmd) = power_manager.update(&settings) {
+            if let SystemCmd::SetBrightness(val) = cmd {
+                display_driver.set_backlight(val);
+            }
         }
 
-        delay.delay_millis(if idle { 250 } else { 33 });
+        let update_time = update_time.elapsed().as_millis();
+        if update_time > 0 {
+            info!("Total update took: {}ms", update_time);
+        }
+        power_manager.await_frame();
     }
 }
