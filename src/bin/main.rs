@@ -16,6 +16,7 @@ use esp_hal::main;
 use esp_hal::spi::master::{Config, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
 
+use core::cell::RefCell;
 use log::{error, info};
 use mipidsi::interface::{Generic8BitBus, ParallelInterface};
 use mipidsi::options::Orientation;
@@ -24,7 +25,7 @@ use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{ButtonEvent, ButtonManager};
 use pocket_computer::log::init_log;
-use pocket_computer::system::SystemCmd;
+use pocket_computer::system::{SettingsView, SystemCmd, SystemSettings};
 use pocket_computer::touch::{TouchCalibration, TouchPoller};
 
 use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents};
@@ -59,6 +60,7 @@ fn main() -> ! {
     let output_config = OutputConfig::default();
     let _io = Io::new(peripherals.IO_MUX);
 
+    // TODO: Move to Display driver.
     // screen io ports
     let lcd_d0 = Output::new(peripherals.GPIO48, Level::Low, output_config);
     let lcd_d1 = Output::new(peripherals.GPIO47, Level::Low, output_config);
@@ -137,10 +139,13 @@ fn main() -> ! {
     let mut last_input = Instant::now();
     let mut last_render_time = 0;
 
+    let settings = RefCell::new(SystemSettings::default());
+
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
         grid: &mut screen_grid,
         buttons: &mut button_manager,
+        settings: SettingsView::new(&settings),
     };
 
     // HACK: BACKLIGHT TEST
@@ -176,9 +181,8 @@ fn main() -> ! {
         })
         .unwrap();
 
-    let mut brightness = 100;
     active_app.init(&mut ctx);
-    set_backlight_u8(&mut channel0, brightness);
+    set_backlight_u8(&mut channel0, settings.borrow().user_brightness);
     loop {
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {
@@ -219,8 +223,9 @@ fn main() -> ! {
         if let Some(cmd) = response.system {
             match cmd {
                 SystemCmd::SetBrightness(val) => {
-                    brightness = val;
-                    set_backlight_u8(&mut channel0, brightness);
+                    let mut s = settings.borrow_mut();
+                    s.user_brightness = val;
+                    set_backlight_u8(&mut channel0, s.user_brightness);
                     lstimer0.update_hw();
                 }
                 _ => {}
@@ -245,9 +250,9 @@ fn main() -> ! {
             || last_screen_refresh.elapsed() > Duration::from_secs(5);
 
         if idle {
-            set_backlight_u8(&mut channel0, brightness / 2);
+            set_backlight_u8(&mut channel0, settings.borrow().user_brightness / 2);
         } else {
-            set_backlight_u8(&mut channel0, brightness);
+            set_backlight_u8(&mut channel0, settings.borrow().user_brightness);
         }
 
         delay.delay_millis(if idle { 250 } else { 33 });

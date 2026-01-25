@@ -57,6 +57,8 @@ impl App for SettingsApp {
             },
         );
 
+        self.screen_brightness = ctx.settings.read(|s| s.user_brightness);
+
         AppResponse::dirty()
     }
     fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
@@ -143,7 +145,8 @@ impl App for SettingsApp {
         ctx.grid.write_str(
             0,
             12,
-            &heapless::format!(32; "Brightness: {:03}", self.screen_brightness).unwrap_or_default(),
+            &heapless::format!(32; "Brightness: {:03}", ctx.settings.read(|s| s.user_brightness))
+                .unwrap_or_default(),
             BASE3,
             BASE03,
         );

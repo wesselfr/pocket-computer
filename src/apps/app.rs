@@ -1,13 +1,14 @@
 use crate::{
     graphics::ScreenGrid,
     input::{ButtonEvent, ButtonManager},
-    system::SystemCmd,
+    system::{SettingsView, SystemCmd},
     touch::TouchEvent,
 };
 
 pub struct Context<'a> {
     pub grid: &'a mut ScreenGrid<'a>,
     pub buttons: &'a mut ButtonManager,
+    pub settings: SettingsView<'a>,
 }
 
 pub trait App {
