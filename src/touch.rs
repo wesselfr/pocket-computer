@@ -4,14 +4,14 @@ use embedded_hal::spi::SpiBus;
 
 use crate::graphics::*;
 use esp_hal::delay::Delay;
-use esp_hal::gpio::{Input, Output};
-use esp_hal::spi::master::Spi;
-use esp_hal::time::Instant;
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::spi::master::{Config, Spi};
+use esp_hal::time::{Instant, Rate};
 
 // TODO: Move touch calibration out of input
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::DrawTarget;
-use esp_hal::DriverMode;
+use esp_hal::{Blocking, DriverMode};
 use log::info;
 
 #[derive(PartialEq)]
@@ -63,35 +63,68 @@ where
     Ok(value)
 }
 
-pub struct TouchPoller<'a, DM: DriverMode> {
-    calibration: TouchCalibration,
-    t_irq: Input<'a>,
-    touch_spi: Spi<'a, DM>,
-    t_cs: Output<'a>,
-
-    touch_down: bool,
+pub struct TouchPins {
+    pub spi: esp_hal::peripherals::SPI2<'static>,
+    pub sclk: esp_hal::peripherals::GPIO1<'static>,
+    pub miso: esp_hal::peripherals::GPIO4<'static>,
+    pub mosi: esp_hal::peripherals::GPIO3<'static>,
+    pub cs: esp_hal::peripherals::GPIO2<'static>,
+    pub irq: esp_hal::peripherals::GPIO9<'static>,
 }
 
-impl<'a, DM: DriverMode> TouchPoller<'a, DM> {
-    pub fn new(
-        calibration: TouchCalibration,
-        t_irq: Input<'a>,
-        touch_spi: Spi<'a, DM>,
-        t_cs: Output<'a>,
-    ) -> Self {
+pub struct TouchDriver<'a> {
+    pub t_irq: Input<'a>,
+    pub touch_spi: Spi<'a, Blocking>,
+    pub t_cs: Output<'a>,
+}
+
+impl<'a> TouchDriver<'a> {
+    pub fn new(p: TouchPins) -> Self {
+        let t_cs = Output::new(p.cs, Level::High, OutputConfig::default());
+        let t_irq = Input::new(
+            p.irq,
+            InputConfig::default().with_pull(esp_hal::gpio::Pull::Up),
+        );
+
+        // SPI2 for touch (<= 2.5 MHz, Mode0)
+        let touch_spi: Spi<'a, Blocking> = Spi::new(
+            p.spi,
+            Config::default()
+                .with_frequency(Rate::from_mhz(2))
+                .with_mode(esp_hal::spi::Mode::_0),
+        )
+        .unwrap()
+        .with_sck(p.sclk)
+        .with_miso(p.miso)
+        .with_mosi(p.mosi);
+
         Self {
-            calibration,
             t_irq,
             touch_spi,
             t_cs,
+        }
+    }
+}
+
+pub struct TouchPoller<'a> {
+    calibration: TouchCalibration,
+    driver: &'a mut TouchDriver<'a>,
+    touch_down: bool,
+}
+
+impl<'a> TouchPoller<'a> {
+    pub fn new(calibration: TouchCalibration, driver: &'a mut TouchDriver<'a>) -> Self {
+        Self {
+            calibration,
+            driver,
             touch_down: false,
         }
     }
     pub fn poll(&mut self) -> Option<TouchEvent> {
-        if self.t_irq.is_low() {
+        if self.driver.t_irq.is_low() {
             if let (Ok(x_raw), Ok(y_raw)) = (
-                xpt2046_read_axis(&mut self.touch_spi, &mut self.t_cs, 0xD0),
-                xpt2046_read_axis(&mut self.touch_spi, &mut self.t_cs, 0x90),
+                xpt2046_read_axis(&mut self.driver.touch_spi, &mut self.driver.t_cs, 0xD0),
+                xpt2046_read_axis(&mut self.driver.touch_spi, &mut self.driver.t_cs, 0x90),
             ) {
                 let (x, y) = map_touch(x_raw, y_raw, &self.calibration);
                 if self.touch_down {
