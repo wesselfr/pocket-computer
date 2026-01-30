@@ -17,6 +17,7 @@ use pocket_computer::power::{PowerManager, PowerMode};
 
 use core::cell::RefCell;
 use log::info;
+use mem_fs::MemFs;
 use pocket_computer::apps::AppState;
 use pocket_computer::apps::home::HomeApp;
 use pocket_computer::input::{ButtonEvent, ButtonManager};
@@ -98,6 +99,7 @@ fn main() -> ! {
     // Timers
     let mut last_render_time = 0;
 
+    let mut fs = MemFs::new();
     let settings = RefCell::new(SystemSettings::default());
     let mut power_manager = PowerManager::new();
 
@@ -106,6 +108,7 @@ fn main() -> ! {
         grid: &mut screen_grid,
         buttons: &mut button_manager,
         settings: SettingsView::new(&settings),
+        fs: &mut fs,
     };
 
     active_app.init(&mut ctx);

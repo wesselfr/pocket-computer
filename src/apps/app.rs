@@ -1,3 +1,5 @@
+use mem_fs::MemFs;
+
 use crate::{
     graphics::ScreenGrid,
     input::{ButtonEvent, ButtonManager},
@@ -9,6 +11,7 @@ pub struct Context<'a> {
     pub grid: &'a mut ScreenGrid<'a>,
     pub buttons: &'a mut ButtonManager,
     pub settings: SettingsView<'a>,
+    pub fs: &'a mut MemFs,
 }
 
 pub trait App {

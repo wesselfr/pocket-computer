@@ -4,6 +4,7 @@ use crate::{
     touch::TouchEvent,
 };
 use esp_hal::time::{Duration, Instant};
+use log::error;
 
 pub const MAX_LENGTH: usize = 256;
 
@@ -50,6 +51,7 @@ pub struct SnakeApp {
     snake: [(u16, u16); MAX_LENGTH],
     length: u16,
     score: u16,
+    high_score: u16,
     dir_changed: bool,
     dir: Direction,
     state: GameState,
@@ -63,6 +65,7 @@ impl Default for SnakeApp {
             snake: [(0, 0); MAX_LENGTH],
             length: 0,
             score: 0,
+            high_score: 0,
             dir_changed: false,
             dir: Direction::East,
             state: GameState::Start,
@@ -157,6 +160,14 @@ impl App for SnakeApp {
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
 
+        self.high_score = if let Some(raw_high_score) = ctx.fs.read("snake_highscore") {
+            ((raw_high_score[0] as u16) << 8) | raw_high_score[1] as u16
+        } else {
+            0
+        };
+
+        self.draw_field(ctx);
+
         AppResponse::dirty()
     }
     fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse {
@@ -210,6 +221,17 @@ impl App for SnakeApp {
 
             // Game Over
             if self.check_game_over(&self.snake, self.length) {
+                if self.score > self.high_score {
+                    self.high_score = self.score;
+
+                    let res = ctx
+                        .fs
+                        .write("snake_highscore", &self.high_score.to_be_bytes());
+
+                    if res.is_err() {
+                        error!("Failed to save highscore..");
+                    }
+                }
                 self.state = GameState::Dead;
             }
 
@@ -233,6 +255,12 @@ impl App for SnakeApp {
         ctx.grid.center_str(
             2,
             &heapless::format!(9; "Score: {}", self.score).unwrap_or_default(),
+            BASE3,
+            CYAN,
+        );
+        ctx.grid.center_str(
+            3,
+            &heapless::format!(9; "High: {}", self.high_score).unwrap_or_default(),
             BASE3,
             CYAN,
         );
