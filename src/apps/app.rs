@@ -4,6 +4,7 @@ use crate::{
     graphics::ScreenGrid,
     input::{ButtonEvent, ButtonManager},
     system::{SettingsView, SystemCmd},
+    tasks::TaskQueueHandle,
     touch::TouchEvent,
 };
 
@@ -12,6 +13,7 @@ pub struct Context<'a> {
     pub buttons: &'a mut ButtonManager,
     pub settings: SettingsView<'a>,
     pub fs: &'a mut MemFs,
+    pub tasks: &'a mut TaskQueueHandle<'a>,
 }
 
 pub trait App {

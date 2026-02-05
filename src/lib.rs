@@ -6,4 +6,5 @@ pub mod input;
 pub mod log;
 pub mod power;
 pub mod system;
+pub mod tasks;
 pub mod touch;

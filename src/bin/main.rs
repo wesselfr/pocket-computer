@@ -14,6 +14,7 @@ use esp_hal::main;
 use esp_hal::time::{Instant, Rate};
 use pocket_computer::display::{DisplayDriver, DisplayPins};
 use pocket_computer::power::{PowerManager, PowerMode};
+use pocket_computer::tasks::TaskSystem;
 
 use core::cell::RefCell;
 use log::info;
@@ -103,18 +104,26 @@ fn main() -> ! {
     let settings = RefCell::new(SystemSettings::default());
     let mut power_manager = PowerManager::new();
 
+    let mut task_system = TaskSystem::default();
+    let (mut task_queue, mut task_runner) = task_system.split();
+
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
         grid: &mut screen_grid,
         buttons: &mut button_manager,
         settings: SettingsView::new(&settings),
         fs: &mut fs,
+        tasks: &mut task_queue,
     };
 
     active_app.init(&mut ctx);
     display_driver.set_backlight(settings.borrow().user_brightness);
     loop {
         let update_time = Instant::now();
+
+        // TODO: Move to seperate core.
+        task_runner.update();
+
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {
             power_manager.register_activity();
