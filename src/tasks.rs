@@ -2,7 +2,9 @@ use heapless::{
     String, Vec,
     spsc::{Consumer, Producer, Queue},
 };
-use log::info;
+use log::{error, info};
+
+use crate::{apps::app::Context, storage::Storage};
 
 pub type TaskId = u32;
 
@@ -95,13 +97,25 @@ pub struct TaskRunner<'a> {
 }
 
 impl<'a> TaskRunner<'a> {
-    pub fn update(&mut self) {
+    pub fn update(&mut self, ctx: &mut Context, storage: &mut Storage) {
         if let Some(task) = self.task_cons.dequeue() {
             info!("Found tasks: {:?}", task);
             let result = match task.kind {
                 TaskKind::SyncTime => TaskResult::Ok,
                 TaskKind::HttpsGet { url: _ } => TaskResult::WithData { data: Vec::new() },
-                TaskKind::DumpMemFs => TaskResult::Ok,
+                TaskKind::DumpMemFs => {
+                    let res = storage.dump_memfs(&mut ctx.fs);
+                    match res {
+                        Ok(()) => {
+                            info!("Dump Completed!");
+                            TaskResult::Ok
+                        }
+                        Err(err) => {
+                            error!("Dump Failed.. {:?}", err);
+                            TaskResult::Failed
+                        }
+                    }
+                }
             };
 
             let _ = self.res_prod.enqueue(TaskCompleted {

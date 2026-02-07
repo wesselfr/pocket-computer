@@ -14,6 +14,7 @@ use esp_hal::main;
 use esp_hal::time::{Instant, Rate};
 use pocket_computer::display::{DisplayDriver, DisplayPins};
 use pocket_computer::power::{PowerManager, PowerMode};
+use pocket_computer::storage::Storage;
 use pocket_computer::tasks::TaskSystem;
 
 use core::cell::RefCell;
@@ -100,7 +101,13 @@ fn main() -> ! {
     // Timers
     let mut last_render_time = 0;
 
-    let mut fs = MemFs::new();
+    let mut storage = Storage::new(peripherals.FLASH);
+    let mut fs = if let Ok(restored_fs) = storage.restore_memfs() {
+        restored_fs
+    } else {
+        MemFs::new()
+    };
+
     let settings = RefCell::new(SystemSettings::default());
     let mut power_manager = PowerManager::new();
 
@@ -122,7 +129,7 @@ fn main() -> ! {
         let update_time = Instant::now();
 
         // TODO: Move to seperate core.
-        task_runner.update();
+        task_runner.update(&mut ctx, &mut storage);
 
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {

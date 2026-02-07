@@ -56,12 +56,21 @@ impl App for SettingsApp {
                 y_max: 14 * CELL_H,
             },
         );
+        ctx.buttons.register_button(
+            "DUMP_MEMFS",
+            Rect {
+                x_min: 0,
+                y_min: 17 * CELL_H,
+                x_max: 15 * CELL_W,
+                y_max: 18 * CELL_H,
+            },
+        );
 
         self.screen_brightness = ctx.settings.read(|s| s.user_brightness);
 
         AppResponse::dirty()
     }
-    fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
+    fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse {
         if let Some(ButtonEvent::Up(id)) = input.button {
             if id == "BRIGHTNESS_UP" {
                 if self.screen_brightness <= 90 {
@@ -74,6 +83,11 @@ impl App for SettingsApp {
                     self.screen_brightness -= 10;
                 }
                 return AppResponse::system(SystemCmd::SetBrightness(self.screen_brightness));
+            }
+            if id == "DUMP_MEMFS" {
+                ctx.tasks
+                    .add_task(crate::tasks::TaskKind::DumpMemFs)
+                    .expect("Failed to schedule memfs dump.");
             }
         };
 
@@ -147,6 +161,15 @@ impl App for SettingsApp {
             12,
             &heapless::format!(32; "Brightness: {:03}", ctx.settings.read(|s| s.effective_brightness))
                 .unwrap_or_default(),
+            BASE3,
+            BASE03,
+        );
+
+        ctx.grid.write_str(0, 15, "> MEMFS <", BASE3, BASE02);
+        ctx.grid.write_str(
+            0,
+            16,
+            &heapless::format!(32; "Total files: {}", ctx.fs.entries().count()).unwrap_or_default(),
             BASE3,
             BASE03,
         );
