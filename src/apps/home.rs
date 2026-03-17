@@ -44,12 +44,21 @@ impl App for HomeApp {
             },
         );
         ctx.buttons.register_button(
-            "SETTINGS",
+            "NOTES",
             crate::input::Rect {
                 x_min: 0,
                 y_min: 150,
                 x_max: 80,
                 y_max: 170,
+            },
+        );
+        ctx.buttons.register_button(
+            "SETTINGS",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 180,
+                x_max: 80,
+                y_max: 200,
             },
         );
 
@@ -67,6 +76,9 @@ impl App for HomeApp {
                     }
                     if id == "SNAKE" {
                         return AppResponse::switch(AppID::SnakeApp);
+                    }
+                    if id == "NOTES" {
+                        return AppResponse::switch(AppID::NotesApp);
                     }
                     if id == "SETTINGS" {
                         return AppResponse::switch(AppID::SettingsApp);

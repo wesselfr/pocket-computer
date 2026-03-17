@@ -2,6 +2,7 @@ use crate::apps::{
     app::{App, AppID, AppResponse, InputEvents},
     color::ColorApp,
     home::HomeApp,
+    notes::NotesApp,
     settings::SettingsApp,
     snake::SnakeApp,
     test::TestApp,
@@ -10,6 +11,7 @@ use crate::apps::{
 pub mod app;
 pub mod color;
 pub mod home;
+pub mod notes;
 pub mod settings;
 pub mod snake;
 pub mod test;
@@ -20,6 +22,7 @@ pub enum AppState {
     Snake(SnakeApp),
     Test(TestApp),
     Settings(SettingsApp),
+    Notes(NotesApp),
 }
 
 impl AppState {
@@ -30,6 +33,7 @@ impl AppState {
             AppState::Snake(app) => app,
             AppState::Test(app) => app,
             AppState::Settings(app) => app,
+            AppState::Notes(app) => app,
         }
     }
     fn app_ref(&self) -> &dyn App {
@@ -39,6 +43,7 @@ impl AppState {
             AppState::Snake(app) => app,
             AppState::Test(app) => app,
             AppState::Settings(app) => app,
+            AppState::Notes(app) => app,
         }
     }
     pub fn switch(&self, app: AppID) -> AppState {
@@ -48,6 +53,7 @@ impl AppState {
             AppID::SnakeApp => AppState::Snake(SnakeApp::default()),
             AppID::TestApp => AppState::Test(TestApp::default()),
             AppID::SettingsApp => AppState::Settings(SettingsApp::default()),
+            AppID::NotesApp => AppState::Notes(NotesApp::default()),
         }
     }
 }
