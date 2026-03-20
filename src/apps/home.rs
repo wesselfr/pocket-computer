@@ -53,12 +53,21 @@ impl App for HomeApp {
             },
         );
         ctx.buttons.register_button(
-            "SETTINGS",
+            "FILES",
             crate::input::Rect {
                 x_min: 0,
                 y_min: 180,
                 x_max: 80,
                 y_max: 200,
+            },
+        );
+        ctx.buttons.register_button(
+            "SETTINGS",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 210,
+                x_max: 80,
+                y_max: 230,
             },
         );
 
@@ -79,6 +88,9 @@ impl App for HomeApp {
                     }
                     if id == "NOTES" {
                         return AppResponse::switch(AppID::NotesApp);
+                    }
+                    if id == "FILES" {
+                        return AppResponse::switch(AppID::FilesApp);
                     }
                     if id == "SETTINGS" {
                         return AppResponse::switch(AppID::SettingsApp);
