@@ -1,5 +1,5 @@
 use crate::{
-    apps::app::{App, AppID, AppResponse, Context, InputEvents},
+    apps::app::{App, AppArgs, AppID, AppResponse, Context, InputEvents},
     graphics::*,
 };
 
@@ -12,7 +12,7 @@ impl Default for HomeApp {
 }
 
 impl App for HomeApp {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse {
+    fn init(&mut self, ctx: &mut Context, _args: AppArgs) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
         ctx.buttons.clear();
 
@@ -78,22 +78,22 @@ impl App for HomeApp {
             match button_event {
                 crate::input::ButtonEvent::Up(id) => {
                     if id == "TEST" {
-                        return AppResponse::switch(AppID::TestApp);
+                        return AppResponse::switch(AppID::TestApp, AppArgs::None);
                     }
                     if id == "COLOR" {
-                        return AppResponse::switch(AppID::ColorPicker);
+                        return AppResponse::switch(AppID::ColorPicker, AppArgs::None);
                     }
                     if id == "SNAKE" {
-                        return AppResponse::switch(AppID::SnakeApp);
+                        return AppResponse::switch(AppID::SnakeApp, AppArgs::None);
                     }
                     if id == "NOTES" {
-                        return AppResponse::switch(AppID::NotesApp);
+                        return AppResponse::switch(AppID::NotesApp, AppArgs::None);
                     }
                     if id == "FILES" {
-                        return AppResponse::switch(AppID::FilesApp);
+                        return AppResponse::switch(AppID::FilesApp, AppArgs::None);
                     }
                     if id == "SETTINGS" {
-                        return AppResponse::switch(AppID::SettingsApp);
+                        return AppResponse::switch(AppID::SettingsApp, AppArgs::None);
                     }
                 }
                 _ => {}

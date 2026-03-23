@@ -27,7 +27,7 @@ use pocket_computer::log::init_log;
 use pocket_computer::system::{SettingsView, SystemCmd, SystemSettings};
 use pocket_computer::touch::{TouchCalibration, TouchDriver, TouchPins, TouchPoller};
 
-use pocket_computer::apps::app::{App, AppCmd, Context, InputEvents};
+use pocket_computer::apps::app::{App, AppArgs, AppCmd, AppID, Context, InputEvents};
 use pocket_computer::graphics::*;
 
 #[panic_handler]
@@ -123,7 +123,7 @@ fn main() -> ! {
         tasks: &mut task_queue,
     };
 
-    active_app.init(&mut ctx);
+    active_app.init(&mut ctx, AppArgs::None);
     display_driver.set_backlight(settings.borrow().user_brightness);
     loop {
         let update_time = Instant::now();
@@ -145,8 +145,8 @@ fn main() -> ! {
         // Check navigation buttons
         if let Some(ButtonEvent::Up(id)) = button_event {
             if id == "BACK" {
-                active_app = active_app.switch(pocket_computer::apps::app::AppID::HomeApp);
-                dirty = active_app.init(&mut ctx).app == AppCmd::Dirty;
+                active_app = active_app.switch(AppID::HomeApp);
+                dirty = active_app.init(&mut ctx, AppArgs::None).app == AppCmd::Dirty;
             }
         };
 
@@ -161,9 +161,9 @@ fn main() -> ! {
         dirty |= match response.app {
             AppCmd::None => false,
             AppCmd::Dirty => true,
-            AppCmd::SwitchApp(app) => {
+            AppCmd::SwitchApp(app, args) => {
                 active_app = active_app.switch(app);
-                active_app.init(&mut ctx).app == AppCmd::Dirty
+                active_app.init(&mut ctx, args).app == AppCmd::Dirty
             }
         };
 

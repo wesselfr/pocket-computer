@@ -1,5 +1,5 @@
 use crate::apps::{
-    app::{App, AppID, AppResponse, InputEvents},
+    app::{App, AppArgs, AppID, AppResponse, InputEvents},
     color::ColorApp,
     files::FilesApp,
     home::HomeApp,
@@ -65,8 +65,8 @@ impl AppState {
 }
 
 impl App for AppState {
-    fn init(&mut self, ctx: &mut app::Context) -> AppResponse {
-        self.app_mut().init(ctx)
+    fn init(&mut self, ctx: &mut app::Context, args: AppArgs) -> AppResponse {
+        self.app_mut().init(ctx, args)
     }
     fn update(&mut self, input: InputEvents, ctx: &mut app::Context) -> AppResponse {
         self.app_mut().update(input, ctx)

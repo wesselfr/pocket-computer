@@ -1,8 +1,9 @@
 use crate::{
-    apps::app::{App, AppResponse, Context, InputEvents},
+    apps::app::{App, AppArgs, AppResponse, Context, InputEvents, MAX_FILE_NAME_LENGTH},
     graphics::*,
     input::{ButtonEvent, Rect},
 };
+use heapless::String;
 
 pub struct FilesApp {
     selected: usize,
@@ -15,7 +16,7 @@ impl Default for FilesApp {
 }
 
 impl App for FilesApp {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse {
+    fn init(&mut self, ctx: &mut Context, _args: AppArgs) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
 
         ctx.buttons.clear();
@@ -39,6 +40,24 @@ impl App for FilesApp {
                 y_max: 31 * CELL_H,
             },
         );
+        ctx.buttons.register_button(
+            "EDIT",
+            Rect {
+                x_min: 12 * CELL_W,
+                y_min: 30 * CELL_H,
+                x_max: 16 * CELL_W,
+                y_max: 31 * CELL_H,
+            },
+        );
+        ctx.buttons.register_button(
+            "DEL",
+            Rect {
+                x_min: 18 * CELL_W,
+                y_min: 30 * CELL_H,
+                x_max: 22 * CELL_W,
+                y_max: 31 * CELL_H,
+            },
+        );
 
         AppResponse::dirty()
     }
@@ -50,6 +69,32 @@ impl App for FilesApp {
             if id == "DOWN" {
                 let len = ctx.fs.entries().count();
                 self.selected = (self.selected + 1).min(len.saturating_sub(1));
+            }
+            if id == "EDIT" {
+                if let Some(file) = ctx.fs.entries().nth(self.selected) {
+                    let mut file_name: String<MAX_FILE_NAME_LENGTH> = String::new();
+                    if file_name.push_str(file.name.as_str()).is_ok() {
+                        return AppResponse::switch(
+                            super::app::AppID::NotesApp,
+                            AppArgs::OpenFile(String::from(file_name)),
+                        );
+                    }
+                }
+            }
+            if id == "DEL" {
+                let mut file_name: String<MAX_FILE_NAME_LENGTH> = String::new();
+                if let Some(file) = ctx.fs.entries().nth(self.selected) {
+                    file_name
+                        .push_str(&file.name)
+                        .expect("Failed to set file name.");
+                }
+                if !file_name.is_empty() {
+                    ctx.fs.delete(&file_name).expect("Failed to delete file.");
+
+                    // Update index
+                    let len = ctx.fs.entries().count();
+                    self.selected = self.selected.min(len.saturating_sub(1));
+                }
             }
             ctx.grid.clear(' ', BASE03, BASE03);
             return AppResponse::dirty();

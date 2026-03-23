@@ -1,13 +1,14 @@
-use heapless::Vec;
+use heapless::{String, Vec, format};
 use log::error;
 
 use crate::{
-    apps::app::{App, AppResponse, Context, InputEvents},
+    apps::app::{App, AppArgs, AppResponse, Context, InputEvents, MAX_FILE_NAME_LENGTH},
     graphics::*,
     input::{ButtonEvent, Rect},
 };
 
 pub struct NotesApp {
+    current_file: String<MAX_FILE_NAME_LENGTH>,
     text: Vec<u8, 255>,
     dirty: bool,
 }
@@ -15,6 +16,7 @@ pub struct NotesApp {
 impl Default for NotesApp {
     fn default() -> Self {
         Self {
+            current_file: String::new(),
             text: Vec::new(),
             dirty: false,
         }
@@ -29,7 +31,7 @@ impl NotesApp {
     }
 }
 impl App for NotesApp {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse {
+    fn init(&mut self, ctx: &mut Context, args: AppArgs) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
 
         ctx.buttons.clear();
@@ -100,9 +102,30 @@ impl App for NotesApp {
             },
         );
 
-        // Load text file if it exsist
-        if let Some(data) = ctx.fs.read("notes.txt") {
-            self.text = Vec::from_slice(data).expect("Failed to load note");
+        match args {
+            // DEBUG: To be removed soon.
+            AppArgs::None => {
+                // Load text file if it exsist
+                if let Some(data) = ctx.fs.read("notes.txt") {
+                    self.text = Vec::from_slice(data).expect("Failed to load note");
+                }
+                self.current_file.clear();
+                self.current_file
+                    .push_str("notes.txt")
+                    .expect("Failed to set current file.");
+            }
+            AppArgs::OpenFile(name) => {
+                // Load text file if it exsist
+                if let Some(data) = ctx.fs.read(&name) {
+                    self.text = Vec::from_slice(data).expect("Failed to load note");
+                    self.current_file.clear();
+                    self.current_file
+                        .push_str(&name)
+                        .expect("Failed to set current file.");
+                }
+            }
+
+            _ => {}
         }
 
         AppResponse::dirty()
@@ -112,7 +135,7 @@ impl App for NotesApp {
 
         if let Some(ButtonEvent::Up(id)) = input.button {
             if id == "SAVE" {
-                let res = ctx.fs.write("notes.txt", &self.text);
+                let res = ctx.fs.write(&self.current_file, &self.text);
 
                 if res.is_ok() {
                     self.dirty = false;
@@ -162,9 +185,15 @@ impl App for NotesApp {
     fn render(&mut self, ctx: &mut Context) {
         // TODO: Display file name here
         if self.dirty {
-            ctx.grid.center_str(2, "*notes.txt*", BASE3, BASE02);
+            ctx.grid.center_str(
+                2,
+                &format!({MAX_FILE_NAME_LENGTH + 2}; "*{}*", &self.current_file)
+                    .unwrap_or_default(),
+                BASE3,
+                BASE02,
+            );
         } else {
-            ctx.grid.center_str(2, "notes.txt", BASE3, BASE02);
+            ctx.grid.center_str(2, &self.current_file, BASE3, BASE02);
         }
 
         let mut x = 0;
