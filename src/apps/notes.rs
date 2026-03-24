@@ -4,7 +4,7 @@ use log::error;
 use crate::{
     apps::app::{App, AppArgs, AppResponse, Context, InputEvents, MAX_FILE_NAME_LENGTH},
     graphics::*,
-    input::{ButtonEvent, Rect, VirtualKeyboard},
+    input::{ButtonEvent, KeyboardEvent, Rect, VirtualKeyboard},
 };
 
 pub struct NotesApp {
@@ -61,61 +61,6 @@ impl App for NotesApp {
             },
         );
 
-        ctx.buttons.register_button(
-            "<",
-            Rect {
-                x_min: 0,
-                y_min: 30 * CELL_H,
-                x_max: 4 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-        ctx.buttons.register_button(
-            ">",
-            Rect {
-                x_min: 4 * CELL_W,
-                y_min: 30 * CELL_H,
-                x_max: 8 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-        ctx.buttons.register_button(
-            "BACKSPACE",
-            Rect {
-                x_min: 8 * CELL_W,
-                y_min: 30 * CELL_H,
-                x_max: 18 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-        ctx.buttons.register_button(
-            "SPACE",
-            Rect {
-                x_min: 18 * CELL_W,
-                y_min: 30 * CELL_H,
-                x_max: 24 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-        ctx.buttons.register_button(
-            "ENTER",
-            Rect {
-                x_min: 24 * CELL_W,
-                y_min: 30 * CELL_H,
-                x_max: 29 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-        ctx.buttons.register_button(
-            "SHIFT",
-            Rect {
-                x_min: 31 * CELL_W,
-                y_min: 30 * CELL_H,
-                x_max: 36 * CELL_W,
-                y_max: 31 * CELL_H,
-            },
-        );
-
         match args {
             // DEBUG: To be removed soon.
             AppArgs::None => {
@@ -145,8 +90,6 @@ impl App for NotesApp {
         AppResponse::dirty()
     }
     fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse {
-        let mut dirty = false;
-
         if let Some(ButtonEvent::Up(id)) = input.button {
             if id == "SAVE" {
                 let res = ctx.fs.write(&self.current_file, &self.text);
@@ -163,44 +106,34 @@ impl App for NotesApp {
             if id == "CLEAR" {
                 self.text.clear();
                 ctx.grid.clear(' ', BASE03, BASE03);
-                dirty = true;
-            }
-            if id == "<" {
-                self.keyboard.prev_page();
-                dirty = true;
-            }
-            if id == ">" {
-                self.keyboard.next_page();
-                dirty = true;
-            }
-            if id == "BACKSPACE" {
-                if !self.text.is_empty() {
-                    self.text.pop();
-                }
-                ctx.grid.clear(' ', BASE03, BASE03);
-                dirty = true;
-            }
-            if id == "SPACE" {
-                self.push_text(" ");
-                dirty = true;
-            }
-            if id == "ENTER" {
-                self.push_text("\n");
-                dirty = true;
-            }
-            if id == "SHIFT" {
-                self.keyboard.shift();
+                self.dirty = true;
                 return AppResponse::dirty();
             }
         }
 
-        self.dirty = dirty;
-
         if let Some(touch_event) = input.touch {
-            let (char, is_dirty) = self.keyboard.update(&touch_event);
-            if let Some(char) = char {
-                self.push_char(char);
-                self.dirty = true;
+            let (event, is_dirty) = self.keyboard.update(&touch_event);
+            match event {
+                None => {}
+                Some(KeyboardEvent::Insert(char)) => {
+                    self.push_char(char);
+                    self.dirty = true;
+                }
+                Some(KeyboardEvent::Backspace) => {
+                    if !self.text.is_empty() {
+                        self.text.pop();
+                    }
+                    ctx.grid.clear(' ', BASE03, BASE03);
+                    self.dirty = true;
+                }
+                Some(KeyboardEvent::Space) => {
+                    self.push_text(" ");
+                    self.dirty = true;
+                }
+                Some(KeyboardEvent::Enter) => {
+                    self.push_text("\n");
+                    self.dirty = true;
+                }
             }
 
             if is_dirty {
