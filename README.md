@@ -31,10 +31,12 @@ It also serves as a playground for:
 - System UI (title bar, status bar)
 - Integrated **mem-fs**
 - **Apps**
-  - Home / launcher
-  - Color picker
-  - Snake
-  - Settings
+	- Home/Launcher
+	- Color Picker
+	- Snake
+	- Notes
+	- Files
+	- Settings
 
 ## Storage (mem-fs)
 The system uses [`mem-fs`](https://github.com/wesselfr/mem-fs), a custom in-memory filesystem designed for embedded systems.
