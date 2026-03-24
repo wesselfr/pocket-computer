@@ -2,7 +2,7 @@ use embedded_graphics::pixelcolor::Rgb565;
 use log::info;
 
 use crate::{
-    apps::app::{App, AppResponse, Context, InputEvents},
+    apps::app::{App, AppArgs, AppResponse, Context, InputEvents},
     graphics::*,
     input::ButtonEvent,
 };
@@ -31,7 +31,7 @@ impl Default for ColorApp {
 }
 
 impl App for ColorApp {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse {
+    fn init(&mut self, ctx: &mut Context, _args: AppArgs) -> AppResponse {
         ctx.buttons.clear();
         ctx.buttons.register_default_buttons();
         ctx.buttons.register_button(

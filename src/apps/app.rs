@@ -1,3 +1,4 @@
+use heapless::String;
 use mem_fs::MemFs;
 
 use crate::{
@@ -17,11 +18,14 @@ pub struct Context<'a> {
 }
 
 pub trait App {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse;
+    fn init(&mut self, ctx: &mut Context, args: AppArgs) -> AppResponse;
     fn update(&mut self, input: InputEvents, ctx: &mut Context) -> AppResponse;
     fn render(&mut self, ctx: &mut Context);
     fn get_name(&self) -> &'static str;
 }
+
+// TODO: Base this value on mem_fs instead.
+pub const MAX_FILE_NAME_LENGTH: usize = 255;
 
 // TODO: Generate this enum using a macro.
 #[derive(PartialEq)]
@@ -31,13 +35,22 @@ pub enum AppID {
     SnakeApp,
     TestApp,
     SettingsApp,
+    NotesApp,
+    FilesApp,
+}
+
+#[derive(PartialEq)]
+pub enum AppArgs {
+    None,
+    NewFile(String<MAX_FILE_NAME_LENGTH>),
+    OpenFile(String<MAX_FILE_NAME_LENGTH>),
 }
 
 #[derive(PartialEq)]
 pub enum AppCmd {
     None,
     Dirty,
-    SwitchApp(AppID),
+    SwitchApp(AppID, AppArgs),
 }
 
 #[derive(PartialEq)]
@@ -64,9 +77,9 @@ impl AppResponse {
             system: None,
         }
     }
-    pub const fn switch(app: AppID) -> Self {
+    pub const fn switch(app: AppID, args: AppArgs) -> Self {
         Self {
-            app: AppCmd::SwitchApp(app),
+            app: AppCmd::SwitchApp(app, args),
             system: None,
         }
     }

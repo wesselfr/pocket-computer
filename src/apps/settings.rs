@@ -1,7 +1,7 @@
 use esp_hal::time::{Duration, Instant};
 
 use crate::{
-    apps::app::{App, AppResponse, Context, InputEvents},
+    apps::app::{App, AppArgs, AppResponse, Context, InputEvents},
     graphics::*,
     input::{ButtonEvent, Rect},
     system::SystemCmd,
@@ -32,7 +32,7 @@ impl Default for SettingsApp {
 }
 
 impl App for SettingsApp {
-    fn init(&mut self, ctx: &mut Context) -> AppResponse {
+    fn init(&mut self, ctx: &mut Context, _args: AppArgs) -> AppResponse {
         ctx.grid.clear(' ', BASE03, BASE03);
 
         ctx.buttons.clear();
