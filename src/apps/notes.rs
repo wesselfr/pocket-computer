@@ -4,13 +4,14 @@ use log::error;
 use crate::{
     apps::app::{App, AppArgs, AppResponse, Context, InputEvents, MAX_FILE_NAME_LENGTH},
     graphics::*,
-    input::{ButtonEvent, Rect},
+    input::{ButtonEvent, Rect, VirtualKeyboard},
 };
 
 pub struct NotesApp {
     current_file: String<MAX_FILE_NAME_LENGTH>,
     text: Vec<u8, 255>,
     dirty: bool,
+    keyboard: VirtualKeyboard,
 }
 
 impl Default for NotesApp {
@@ -19,6 +20,7 @@ impl Default for NotesApp {
             current_file: String::new(),
             text: Vec::new(),
             dirty: false,
+            keyboard: VirtualKeyboard::new(),
         }
     }
 }
@@ -28,6 +30,9 @@ impl NotesApp {
         for c in text.as_bytes() {
             let _ = self.text.push(*c);
         }
+    }
+    fn push_char(&mut self, c: char) {
+        let _ = self.text.push(c as u8);
     }
 }
 impl App for NotesApp {
@@ -57,7 +62,7 @@ impl App for NotesApp {
         );
 
         ctx.buttons.register_button(
-            "A",
+            "<",
             Rect {
                 x_min: 0,
                 y_min: 30 * CELL_H,
@@ -66,7 +71,7 @@ impl App for NotesApp {
             },
         );
         ctx.buttons.register_button(
-            "B",
+            ">",
             Rect {
                 x_min: 4 * CELL_W,
                 y_min: 30 * CELL_H,
@@ -98,6 +103,15 @@ impl App for NotesApp {
                 x_min: 24 * CELL_W,
                 y_min: 30 * CELL_H,
                 x_max: 29 * CELL_W,
+                y_max: 31 * CELL_H,
+            },
+        );
+        ctx.buttons.register_button(
+            "SHIFT",
+            Rect {
+                x_min: 31 * CELL_W,
+                y_min: 30 * CELL_H,
+                x_max: 36 * CELL_W,
                 y_max: 31 * CELL_H,
             },
         );
@@ -151,12 +165,12 @@ impl App for NotesApp {
                 ctx.grid.clear(' ', BASE03, BASE03);
                 dirty = true;
             }
-            if id == "A" {
-                self.push_text("Hello ");
+            if id == "<" {
+                self.keyboard.prev_page();
                 dirty = true;
             }
-            if id == "B" {
-                self.push_text("World! ");
+            if id == ">" {
+                self.keyboard.next_page();
                 dirty = true;
             }
             if id == "BACKSPACE" {
@@ -174,10 +188,27 @@ impl App for NotesApp {
                 self.push_text("\n");
                 dirty = true;
             }
+            if id == "SHIFT" {
+                self.keyboard.shift();
+                return AppResponse::dirty();
+            }
+        }
+
+        self.dirty = dirty;
+
+        if let Some(touch_event) = input.touch {
+            let (char, is_dirty) = self.keyboard.update(&touch_event);
+            if let Some(char) = char {
+                self.push_char(char);
+                self.dirty = true;
+            }
+
+            if is_dirty {
+                return AppResponse::dirty();
+            }
         }
 
         if dirty {
-            self.dirty = true;
             return AppResponse::dirty();
         }
         AppResponse::none()
@@ -195,6 +226,8 @@ impl App for NotesApp {
         } else {
             ctx.grid.center_str(2, &self.current_file, BASE3, BASE02);
         }
+
+        self.keyboard.draw(ctx.grid);
 
         let mut x = 0;
         let mut y = 0;

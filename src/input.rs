@@ -1,5 +1,5 @@
 use crate::{
-    graphics::{BASE01, BASE3, ScreenGrid, screen_pos_to_grid_pos},
+    graphics::{BASE01, BASE03, BASE3, CELL_H, CELL_W, ScreenGrid, screen_pos_to_grid_pos},
     touch::TouchEvent,
 };
 use core::u16;
@@ -22,6 +22,22 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn new(x_min: u16, y_min: u16, x_max: u16, y_max: u16) -> Self {
+        Self {
+            x_min,
+            y_min,
+            x_max,
+            y_max,
+        }
+    }
+    pub fn from_width_height(x_pos: u16, y_pos: u16, width: u16, height: u16) -> Self {
+        Self {
+            x_min: x_pos,
+            y_min: y_pos,
+            x_max: x_pos + width,
+            y_max: y_pos + height,
+        }
+    }
     pub fn inside(&self, x: u16, y: u16) -> bool {
         x >= self.x_min && x <= self.x_max && y >= self.y_min && y <= self.y_max
     }
@@ -106,5 +122,106 @@ impl ButtonManager {
         }
 
         self.dirty = false;
+    }
+}
+
+// TODO: Move this to a widgets file
+const KEYBOARD_PAGES: [&str; 5] = ["abcdef", "ghijkl", "mnopqr", "stuvwx", "yz"];
+pub struct VirtualKeyboard {
+    page_index: usize,
+    active_key: Option<usize>,
+    shift: bool,
+    dirty: bool,
+}
+
+impl VirtualKeyboard {
+    pub fn new() -> Self {
+        Self {
+            page_index: 0,
+            active_key: None,
+            shift: false,
+            dirty: false,
+        }
+    }
+    pub fn update(&mut self, touch_event: &TouchEvent) -> (Option<char>, bool) {
+        let mut char = None;
+        match touch_event {
+            TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
+                for (i, _ch) in KEYBOARD_PAGES[self.page_index].chars().enumerate() {
+                    let rect = Rect::from_width_height(
+                        (i * 5) as u16 * CELL_W,
+                        28 * CELL_H,
+                        3 * CELL_W,
+                        1 * CELL_H,
+                    );
+                    if rect.inside(*x, *y) {
+                        self.active_key = Some(i);
+                        self.dirty = true;
+                        break;
+                    }
+                }
+            }
+            TouchEvent::Up => {
+                char = if let Some(active_key) = self.active_key {
+                    let c = KEYBOARD_PAGES[self.page_index]
+                        .chars()
+                        .nth(active_key)
+                        .expect("Failed to get key");
+                    if self.shift {
+                        Some(c.to_ascii_uppercase())
+                    } else {
+                        Some(c)
+                    }
+                } else {
+                    None
+                };
+
+                self.active_key = None;
+                self.dirty = true;
+            }
+        }
+        return (char, self.dirty);
+    }
+
+    pub fn draw(&mut self, grid: &mut ScreenGrid) {
+        grid.draw_box(0, 28, 5 * 5 + 3, 1, BASE03);
+        for (i, ch) in KEYBOARD_PAGES[self.page_index].chars().enumerate() {
+            let (fg, bg) = if let Some(active) = self.active_key {
+                if active == i {
+                    (BASE01, BASE3)
+                } else {
+                    (BASE3, BASE01)
+                }
+            } else {
+                (BASE3, BASE01)
+            };
+
+            grid.draw_box((i * 5) as u16, 28, 3, 1, bg);
+            grid.put_char(
+                1 + (5 * i) as u16,
+                28,
+                if self.shift {
+                    ch.to_ascii_uppercase()
+                } else {
+                    ch
+                },
+                fg,
+                bg,
+            );
+        }
+        self.dirty = false;
+    }
+    pub fn next_page(&mut self) {
+        if self.page_index < KEYBOARD_PAGES.len() {
+            self.page_index += 1
+        };
+    }
+    pub fn prev_page(&mut self) {
+        if self.page_index > 0 {
+            self.page_index -= 1;
+        }
+    }
+    pub fn shift(&mut self) {
+        self.shift = !self.shift;
     }
 }
