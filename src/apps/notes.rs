@@ -141,9 +141,6 @@ impl App for NotesApp {
             }
         }
 
-        if dirty {
-            return AppResponse::dirty();
-        }
         AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {

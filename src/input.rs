@@ -136,7 +136,11 @@ impl ButtonManager {
 }
 
 // TODO: Move this to a widgets file
-const KEYBOARD_PAGES: [&str; 5] = ["abcdef", "ghijkl", "mnopqr", "stuvwx", "yz"];
+const KEYBOARD_PAGES: [&str; 8] = [
+    "abcdef", "ghijkl", "mnopqr", "stuvwx", "yz", "!?@#$%^", "&*()-+=", "_/|\\<>",
+];
+
+const KEY_WIDTH: u16 = 5;
 
 pub enum KeyboardEvent {
     Insert(char),
@@ -163,23 +167,22 @@ impl VirtualKeyboard {
             dirty: false,
             active_button: None,
             buttons: [
-                ("<", Rect::from_grid_pos(0, 30, 4, 31)),
-                (">", Rect::from_grid_pos(4, 30, 8, 31)),
-                ("BACKSPACE", Rect::from_grid_pos(8, 30, 18, 31)),
-                ("SPACE", Rect::from_grid_pos(18, 30, 24, 31)),
-                ("ENTER", Rect::from_grid_pos(24, 30, 30, 31)),
-                ("SHIFT", Rect::from_grid_pos(30, 30, 36, 31)),
+                (" <", Rect::from_grid_pos(0, 30, 4, 31)),
+                ("  >", Rect::from_grid_pos(7, 30, 11, 31)),
+                ("BACKSPACE", Rect::from_grid_pos(11, 30, 21, 31)),
+                ("SPACE", Rect::from_grid_pos(21, 30, 27, 31)),
+                ("ENTER", Rect::from_grid_pos(27, 30, 33, 31)),
+                ("SHIFT", Rect::from_grid_pos(33, 30, 39, 31)),
             ],
         }
     }
     pub fn update(&mut self, touch_event: &TouchEvent) -> (Option<KeyboardEvent>, bool) {
         match touch_event {
             TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
-                let mut has_hit = false;
-
+                let x_offset = self.get_x_offset();
                 for (i, _ch) in KEYBOARD_PAGES[self.page_index].chars().enumerate() {
                     let rect = Rect::from_width_height(
-                        (i * 5) as u16 * CELL_W,
+                        (x_offset + (i as u16 * KEY_WIDTH)) * CELL_W,
                         28 * CELL_H,
                         3 * CELL_W,
                         1 * CELL_H,
@@ -187,7 +190,7 @@ impl VirtualKeyboard {
                     if rect.inside(*x, *y) {
                         self.dirty = self.active_key != Some(i);
                         self.active_key = Some(i);
-                        has_hit = true;
+                        self.active_button = None;
                         break;
                     }
                 }
@@ -195,16 +198,10 @@ impl VirtualKeyboard {
                 for (i, button) in self.buttons.iter().enumerate() {
                     if button.1.inside(*x, *y) {
                         self.dirty = self.active_button != Some(i);
+                        self.active_key = None;
                         self.active_button = Some(i);
-                        has_hit = true;
                         break;
                     }
-                }
-
-                if !has_hit && (self.active_key.is_some() || self.active_button.is_some()) {
-                    self.active_key = None;
-                    self.active_button = None;
-                    self.dirty = true;
                 }
             }
             TouchEvent::Up => {
@@ -264,6 +261,8 @@ impl VirtualKeyboard {
 
     pub fn draw(&mut self, grid: &mut ScreenGrid) {
         grid.draw_box(0, 28, SCREEN_W / CELL_W, 3, BASE02);
+
+        let x_offset = self.get_x_offset();
         for (i, ch) in KEYBOARD_PAGES[self.page_index].chars().enumerate() {
             let is_active = self.active_key == Some(i);
 
@@ -273,9 +272,9 @@ impl VirtualKeyboard {
                 (BASE3, BASE01)
             };
 
-            grid.draw_box((i * 5) as u16, 28, 3, 1, bg);
+            grid.draw_box(x_offset + (i as u16 * KEY_WIDTH), 28, 3, 1, bg);
             grid.put_char(
-                1 + (5 * i) as u16,
+                x_offset + 1 + (i as u16 * KEY_WIDTH),
                 28,
                 if self.shift {
                     ch.to_ascii_uppercase()
@@ -286,6 +285,15 @@ impl VirtualKeyboard {
                 bg,
             );
         }
+
+        grid.write_str(
+            4,
+            30,
+            &heapless::format!(3;"{}/{}", self.page_index + 1, KEYBOARD_PAGES.len())
+                .unwrap_or_default(),
+            BASE3,
+            BASE01,
+        );
 
         for (i, button) in self.buttons.iter().enumerate() {
             let min = screen_pos_to_grid_pos(button.1.x_min, button.1.y_min);
@@ -304,8 +312,15 @@ impl VirtualKeyboard {
         }
         self.dirty = false;
     }
+    fn get_x_offset(&self) -> u16 {
+        const KEY_WIDTH: u16 = 5;
+        let num_keys = KEYBOARD_PAGES[self.page_index].chars().count();
+        let total_width = num_keys as u16 * KEY_WIDTH;
+
+        ((SCREEN_W / CELL_W) - total_width as u16) / 2
+    }
     pub fn next_page(&mut self) {
-        if self.page_index < KEYBOARD_PAGES.len() {
+        if self.page_index < KEYBOARD_PAGES.len() - 1 {
             self.page_index += 1
         };
     }
