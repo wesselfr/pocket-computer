@@ -70,6 +70,15 @@ impl App for HomeApp {
                 y_max: 230,
             },
         );
+        ctx.buttons.register_button(
+            "BROWSER",
+            crate::input::Rect {
+                x_min: 0,
+                y_min: 240,
+                x_max: 80,
+                y_max: 260,
+            },
+        );
 
         AppResponse::dirty()
     }
@@ -94,6 +103,9 @@ impl App for HomeApp {
                     }
                     if id == "SETTINGS" {
                         return AppResponse::switch(AppID::SettingsApp, AppArgs::None);
+                    }
+                    if id == "BROWSER" {
+                        return AppResponse::switch(AppID::BrowserApp, AppArgs::None);
                     }
                 }
                 _ => {}

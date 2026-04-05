@@ -1,5 +1,6 @@
 use crate::apps::{
     app::{App, AppArgs, AppID, AppResponse, InputEvents},
+    browser::browser::BrowserApp,
     color::ColorApp,
     files::FilesApp,
     home::HomeApp,
@@ -10,6 +11,7 @@ use crate::apps::{
 };
 
 pub mod app;
+pub mod browser;
 pub mod color;
 pub mod files;
 pub mod home;
@@ -26,6 +28,7 @@ pub enum AppState {
     Settings(SettingsApp),
     Notes(NotesApp),
     Files(FilesApp),
+    Browser(BrowserApp),
 }
 
 impl AppState {
@@ -38,6 +41,7 @@ impl AppState {
             AppState::Settings(app) => app,
             AppState::Notes(app) => app,
             AppState::Files(app) => app,
+            AppState::Browser(app) => app,
         }
     }
     fn app_ref(&self) -> &dyn App {
@@ -49,6 +53,7 @@ impl AppState {
             AppState::Settings(app) => app,
             AppState::Notes(app) => app,
             AppState::Files(app) => app,
+            AppState::Browser(app) => app,
         }
     }
     pub fn switch(&self, app: AppID) -> AppState {
@@ -60,6 +65,7 @@ impl AppState {
             AppID::SettingsApp => AppState::Settings(SettingsApp::default()),
             AppID::NotesApp => AppState::Notes(NotesApp::default()),
             AppID::FilesApp => AppState::Files(FilesApp::default()),
+            AppID::BrowserApp => AppState::Browser(BrowserApp::default()),
         }
     }
 }

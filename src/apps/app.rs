@@ -37,6 +37,7 @@ pub enum AppID {
     SettingsApp,
     NotesApp,
     FilesApp,
+    BrowserApp,
 }
 
 #[derive(PartialEq)]
