@@ -10,6 +10,7 @@ use crate::{
 pub struct NotesApp {
     current_file: String<MAX_FILE_NAME_LENGTH>,
     text: Vec<u8, 255>,
+    cursor_index: usize,
     dirty: bool,
     keyboard: VirtualKeyboard,
 }
@@ -19,6 +20,7 @@ impl Default for NotesApp {
         Self {
             current_file: String::new(),
             text: Vec::new(),
+            cursor_index: 0,
             dirty: false,
             keyboard: VirtualKeyboard::new(),
         }
@@ -28,11 +30,13 @@ impl Default for NotesApp {
 impl NotesApp {
     fn push_text(&mut self, text: &str) {
         for c in text.as_bytes() {
-            let _ = self.text.push(*c);
+            let _ = self.text.insert(self.cursor_index, *c);
+            self.cursor_index += 1;
         }
     }
     fn push_char(&mut self, c: char) {
-        let _ = self.text.push(c as u8);
+        let _ = self.text.insert(self.cursor_index, c as u8);
+        self.cursor_index += 1;
     }
 }
 impl App for NotesApp {
@@ -60,6 +64,24 @@ impl App for NotesApp {
                 y_max: 3 * CELL_H,
             },
         );
+        ctx.buttons.register_button(
+            " < ",
+            Rect {
+                x_min: 0,
+                y_min: 26 * CELL_H,
+                x_max: 3 * CELL_W,
+                y_max: 27 * CELL_H,
+            },
+        );
+        ctx.buttons.register_button(
+            " > ",
+            Rect {
+                x_min: 4 * CELL_W,
+                y_min: 26 * CELL_H,
+                x_max: 7 * CELL_W,
+                y_max: 27 * CELL_H,
+            },
+        );
 
         match args {
             // DEBUG: To be removed soon.
@@ -67,6 +89,7 @@ impl App for NotesApp {
                 // Load text file if it exsist
                 if let Some(data) = ctx.fs.read("notes.txt") {
                     self.text = Vec::from_slice(data).expect("Failed to load note");
+                    self.cursor_index = self.text.len();
                 }
                 self.current_file.clear();
                 self.current_file
@@ -77,6 +100,7 @@ impl App for NotesApp {
                 // Load text file if it exsist
                 if let Some(data) = ctx.fs.read(&name) {
                     self.text = Vec::from_slice(data).expect("Failed to load note");
+                    self.cursor_index = self.text.len();
                     self.current_file.clear();
                     self.current_file
                         .push_str(&name)
@@ -105,9 +129,24 @@ impl App for NotesApp {
             }
             if id == "CLEAR" {
                 self.text.clear();
+                self.cursor_index = 0;
                 ctx.grid.clear(' ', BASE03, BASE03);
                 self.dirty = true;
                 return AppResponse::dirty();
+            }
+            if id == " < " {
+                if self.cursor_index > 0 {
+                    self.cursor_index -= 1;
+                    // HACK: Force redraw to prevent ghost cursor.
+                    ctx.grid.clear(' ', BASE03, BASE03);
+                }
+            }
+            if id == " > " {
+                if self.cursor_index < self.text.len() {
+                    self.cursor_index += 1;
+                    // HACK: Force redraw to prevent ghost cursor.
+                    ctx.grid.clear(' ', BASE03, BASE03);
+                }
             }
         }
 
@@ -120,8 +159,10 @@ impl App for NotesApp {
                     self.dirty = true;
                 }
                 Some(KeyboardEvent::Backspace) => {
-                    if !self.text.is_empty() {
-                        self.text.pop();
+                    if self.cursor_index > 0 && !self.text.is_empty() {
+                        self.text.remove(self.cursor_index - 1);
+                        self.cursor_index -= 1;
+                        // self.text.pop();
                     }
                     ctx.grid.clear(' ', BASE03, BASE03);
                     self.dirty = true;
@@ -133,6 +174,11 @@ impl App for NotesApp {
                 Some(KeyboardEvent::Enter) => {
                     self.push_text("\n");
                     self.dirty = true;
+
+                    // Force redraw if cursor is not at end
+                    if self.cursor_index != self.text.len() {
+                        ctx.grid.clear(' ', BASE03, BASE03);
+                    }
                 }
             }
 
@@ -161,13 +207,25 @@ impl App for NotesApp {
 
         let mut x = 0;
         let mut y = 0;
-        for ch in &self.text {
+        for (index, ch) in self.text.iter().enumerate() {
+            let is_cursor = index == self.cursor_index;
+
             if *ch == b'\n' {
+                if is_cursor {
+                    ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE01);
+                }
+
                 y += 1;
                 x = 0;
                 continue;
             }
-            ctx.grid.put_char(x, 4 + y, *ch as char, BASE3, BASE03);
+
+            if is_cursor {
+                ctx.grid.put_char(x, 4 + y, *ch as char, BASE3, BASE01);
+            } else {
+                ctx.grid.put_char(x, 4 + y, *ch as char, BASE3, BASE03);
+            }
+
             x += 1;
 
             if x >= SCREEN_W / CELL_W {
@@ -177,6 +235,9 @@ impl App for NotesApp {
             if 4 + y >= SCREEN_H / CELL_H {
                 break;
             }
+        }
+        if self.cursor_index == self.text.len() {
+            ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE01);
         }
     }
     fn get_name(&self) -> &'static str {
