@@ -82,11 +82,29 @@ impl App for NotesApp {
                 y_max: 27 * CELL_H,
             },
         );
+        ctx.buttons.register_button(
+            "BEGIN",
+            Rect {
+                x_min: 8 * CELL_W,
+                y_min: 26 * CELL_H,
+                x_max: 13 * CELL_W,
+                y_max: 27 * CELL_H,
+            },
+        );
+        ctx.buttons.register_button(
+            "END",
+            Rect {
+                x_min: 14 * CELL_W,
+                y_min: 26 * CELL_H,
+                x_max: 17 * CELL_W,
+                y_max: 27 * CELL_H,
+            },
+        );
 
         match args {
-            // DEBUG: To be removed soon.
             AppArgs::None => {
                 // Load text file if it exsist
+                // DEBUG: To be removed soon.
                 if let Some(data) = ctx.fs.read("notes.txt") {
                     self.text = Vec::from_slice(data).expect("Failed to load note");
                     self.cursor_index = self.text.len();
@@ -100,6 +118,8 @@ impl App for NotesApp {
                 // Load text file if it exsist
                 if let Some(data) = ctx.fs.read(&name) {
                     self.text = Vec::from_slice(data).expect("Failed to load note");
+                    self.cursor_index = self.text.len();
+
                     self.current_file.clear();
                     self.current_file
                         .push_str(&name)
@@ -133,6 +153,7 @@ impl App for NotesApp {
                 self.dirty = true;
                 return AppResponse::dirty();
             }
+            // Cursor logic
             if id == " < " {
                 if self.cursor_index > 0 {
                     self.cursor_index -= 1;
@@ -146,6 +167,16 @@ impl App for NotesApp {
                     // HACK: Force redraw to prevent ghost cursor.
                     ctx.grid.clear(' ', BASE03, BASE03);
                 }
+            }
+            if id == "BEGIN" {
+                self.cursor_index = 0;
+                // HACK: Force redraw to prevent ghost cursor.
+                ctx.grid.clear(' ', BASE03, BASE03);
+            }
+            if id == "END" {
+                self.cursor_index = self.text.len();
+                // HACK: Force redraw to prevent ghost cursor.
+                ctx.grid.clear(' ', BASE03, BASE03);
             }
         }
 
