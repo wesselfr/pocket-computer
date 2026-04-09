@@ -53,6 +53,41 @@ impl Default for Cell {
     }
 }
 
+pub trait GridTarget {
+    fn cols(&self) -> u16;
+    fn rows(&self) -> u16;
+    fn put_char(&mut self, x: u16, y: u16, ch: char, fg: Rgb565, bg: Rgb565);
+
+    fn write_str(&mut self, x: u16, y: u16, s: &str, fg: Rgb565, bg: Rgb565) {
+        for (i, ch) in s.chars().enumerate() {
+            let xi = x + i as u16;
+            if xi >= self.cols() {
+                break;
+            }
+            self.put_char(xi, y, ch, fg, bg);
+        }
+    }
+
+    fn center_str(&mut self, y: u16, s: &str, fg: Rgb565, bg: Rgb565) {
+        // Early check to make sure it fits.
+        // TODO: Split up in multiple calls.
+        if s.len() > self.cols() as usize {
+            error!("String too large to center.");
+            return;
+        }
+        let x = (self.cols() - s.len() as u16) / 2;
+        self.write_str(x, y, s, fg, bg);
+    }
+
+    fn draw_box(&mut self, x: u16, y: u16, width: u16, height: u16, bg: Rgb565) {
+        for x in x..x + width {
+            for y in y..y + height {
+                self.put_char(x, y, ' ', bg, bg);
+            }
+        }
+    }
+}
+
 pub struct ScreenGrid<'a> {
     pub cols: u16,
     pub rows: u16,
@@ -80,8 +115,16 @@ impl<'a> ScreenGrid<'a> {
             };
         }
     }
+}
 
-    pub fn put_char(&mut self, x: u16, y: u16, ch: char, fg: Rgb565, bg: Rgb565) {
+impl GridTarget for ScreenGrid<'_> {
+    fn cols(&self) -> u16 {
+        self.cols
+    }
+    fn rows(&self) -> u16 {
+        self.rows
+    }
+    fn put_char(&mut self, x: u16, y: u16, ch: char, fg: Rgb565, bg: Rgb565) {
         if x < self.cols && y < self.rows {
             let cell = &mut self.cells[self.idx(x, y)];
             if cell.ch != ch || cell.fg != fg || cell.bg != bg {
@@ -94,34 +137,58 @@ impl<'a> ScreenGrid<'a> {
             }
         }
     }
+}
 
-    pub fn write_str(&mut self, x: u16, y: u16, s: &str, fg: Rgb565, bg: Rgb565) {
-        for (i, ch) in s.chars().enumerate() {
-            let xi = x + i as u16;
-            if xi >= self.cols {
-                break;
-            }
-            self.put_char(xi, y, ch, fg, bg);
+pub struct SubGrid<'a, T: GridTarget> {
+    target: &'a mut T,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    scroll_x: u16,
+    scroll_y: u16,
+}
+
+impl<'a, T: GridTarget> SubGrid<'a, T> {
+    pub fn new(x: u16, y: u16, width: u16, height: u16, target: &'a mut T) -> Self {
+        Self {
+            target,
+            x,
+            y,
+            width,
+            height,
+            scroll_x: 0,
+            scroll_y: 0,
         }
     }
+    pub fn set_scroll(&mut self, x: u16, y: u16) {
+        self.scroll_x = x;
+        self.scroll_y = y;
+    }
+    pub fn get_scroll(&self) -> (u16, u16) {
+        (self.scroll_x, self.scroll_y)
+    }
+}
 
-    pub fn center_str(&mut self, y: u16, s: &str, fg: Rgb565, bg: Rgb565) {
-        // Early check to make sure it fits.
-        // TODO: Split up in multiple calls.
-        if s.len() > self.cols as usize {
-            error!("String too large to center.");
+impl<T: GridTarget> GridTarget for SubGrid<'_, T> {
+    fn cols(&self) -> u16 {
+        self.width
+    }
+    fn rows(&self) -> u16 {
+        self.height
+    }
+    fn put_char(&mut self, x: u16, y: u16, ch: char, fg: Rgb565, bg: Rgb565) {
+        let vx = x as i32 - self.scroll_x as i32;
+        let vy = y as i32 - self.scroll_y as i32;
+
+        if vx < 0 || vy < 0 || vx >= self.width as i32 || vy >= self.height as i32 {
             return;
         }
-        let x = (self.cols - s.len() as u16) / 2;
-        self.write_str(x, y, s, fg, bg);
-    }
 
-    pub fn draw_box(&mut self, x: u16, y: u16, width: u16, height: u16, bg: Rgb565) {
-        for x in x..x + width {
-            for y in y..y + height {
-                self.put_char(x, y, ' ', bg, bg);
-            }
-        }
+        let parent_x = self.x + vx as u16;
+        let parent_y = self.y + vy as u16;
+
+        self.target.put_char(parent_x, parent_y, ch, fg, bg);
     }
 }
 

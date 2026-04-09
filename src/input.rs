@@ -1,6 +1,7 @@
 use crate::{
     graphics::{
-        BASE01, BASE02, BASE3, CELL_H, CELL_W, SCREEN_W, ScreenGrid, screen_pos_to_grid_pos,
+        BASE01, BASE02, BASE3, CELL_H, CELL_W, GridTarget, SCREEN_W, ScreenGrid,
+        screen_pos_to_grid_pos,
     },
     touch::TouchEvent,
 };
@@ -112,7 +113,7 @@ impl ButtonManager {
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }
-    pub fn draw_buttons(&mut self, grid: &mut ScreenGrid) {
+    pub fn draw_buttons(&mut self, grid: &mut dyn GridTarget) {
         for button in &self.buttons {
             let min = screen_pos_to_grid_pos(button.1.x_min, button.1.y_min);
             let max = screen_pos_to_grid_pos(button.1.x_max, button.1.y_max);
@@ -259,7 +260,7 @@ impl VirtualKeyboard {
         return (None, self.dirty);
     }
 
-    pub fn draw(&mut self, grid: &mut ScreenGrid) {
+    pub fn draw(&mut self, grid: &mut dyn GridTarget) {
         grid.draw_box(0, 28, SCREEN_W / CELL_W, 3, BASE02);
 
         let x_offset = self.get_x_offset();
