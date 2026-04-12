@@ -1,8 +1,7 @@
-use embedded_graphics::{pixelcolor::Rgb565, prelude::RgbColor};
+use core::str;
+
 use heapless::{String, Vec};
 use log::info;
-
-use crate::graphics::ScreenGrid;
 
 pub type NodeId = u16;
 
@@ -40,7 +39,7 @@ impl StringArena {
 //     value: StrSlice,
 // }
 
-struct Dom {
+pub struct Dom {
     nodes: heapless::Vec<Node, 256>,
     // attrs: heapless::Vec<Attr, 128>,
     strings: StringArena,
@@ -62,10 +61,10 @@ impl Dom {
         // self.attrs.clear();
         self.strings.clear();
     }
-    fn resolve(&self, slice: StrSlice) -> &str {
+    pub fn resolve(&self, slice: StrSlice) -> &str {
         &self.strings.buff[slice.start as usize..(slice.start + slice.len) as usize]
     }
-    fn get_node(&self, id: NodeId) -> &Node {
+    pub fn get_node(&self, id: NodeId) -> &Node {
         &self.nodes[id as usize]
     }
     fn get_node_mut(&mut self, id: NodeId) -> &mut Node {
@@ -75,10 +74,10 @@ impl Dom {
 
 #[derive(Debug)]
 pub struct Node {
-    parent: Option<NodeId>,
-    first_child: Option<NodeId>,
-    next_sibling: Option<NodeId>,
-    node_type: NodeType,
+    pub parent: Option<NodeId>,
+    pub first_child: Option<NodeId>,
+    pub next_sibling: Option<NodeId>,
+    pub node_type: NodeType,
 }
 
 impl Node {
@@ -108,7 +107,7 @@ pub enum NodeType {
 
 #[derive(Debug)]
 pub struct ElementData {
-    tag_name: StrSlice,
+    pub tag_name: StrSlice,
     attrs: Option<StrSlice>,
 }
 
@@ -163,6 +162,9 @@ impl Parser {
             dom: Dom::default(),
         }
     }
+    pub fn get_dom(&self) -> &Dom {
+        &self.dom
+    }
     pub fn parse(&mut self, bytes: &[u8]) -> Result<(), ParseError> {
         self.dom.clear();
 
@@ -173,8 +175,8 @@ impl Parser {
             tag_name: self.dom.strings.push("ROOT"),
             attrs: None,
         });
-        self.dom.nodes.push(root_node);
-        stack.push(0);
+        let _ = self.dom.nodes.push(root_node);
+        let _ = stack.push(0);
 
         let mut i = 0;
         let len = bytes.len();
@@ -188,14 +190,19 @@ impl Parser {
             // Start Tag
             if bytes[i] == b'<' {
                 i += 1;
-                let start = i;
                 let is_closing = bytes[i] == b'/';
                 if is_closing {
                     i += 1;
                 }
+                let start = i;
 
                 while i < len && bytes[i] != b'>' {
                     i += 1;
+                }
+
+                // Sanity check
+                if i >= len {
+                    return Err(ParseError::Invalid);
                 }
 
                 let mut tag_end = i;
@@ -214,12 +221,9 @@ impl Parser {
                     .dom
                     .strings
                     .push(str::from_utf8(val).unwrap_or_default());
+                let void_tag = self.is_void_tag(&tag);
 
-                if is_closing {
-                    info!("CLOSE TAG: {}", self.dom.resolve(tag));
-                } else {
-                    info!("TAG: {}", self.dom.resolve(tag));
-                }
+                info!("TAG: {} is_closing: {}", self.dom.resolve(tag), is_closing);
 
                 let attr = if attr_start != start {
                     let val = &bytes[attr_start..i];
@@ -227,15 +231,12 @@ impl Parser {
                         .dom
                         .strings
                         .push(str::from_utf8(val).unwrap_or_default());
-                    info!("ATTR: {}", self.dom.resolve(attr));
                     Some(attr)
                 } else {
                     None
                 };
 
-                if is_closing {
-                    stack.pop();
-                } else {
+                if !is_closing {
                     let node_id = self.dom.nodes.len() as NodeId;
                     self.dom
                         .nodes
@@ -249,7 +250,26 @@ impl Parser {
                         append_child(parent, node_id, &mut self.dom);
                     }
 
-                    stack.push(node_id).unwrap_or_default();
+                    if !void_tag {
+                        stack.push(node_id).unwrap_or_default();
+                    }
+                } else {
+                    if !void_tag {
+                        let Some(last_tag) = stack.last().copied() else {
+                            return Err(ParseError::Invalid);
+                        };
+
+                        let NodeType::Element(element) = &self.dom.get_node(last_tag).node_type
+                        else {
+                            return Err(ParseError::Invalid);
+                        };
+
+                        if self.dom.resolve(element.tag_name) != self.dom.resolve(tag) {
+                            return Err(ParseError::Invalid);
+                        }
+
+                        stack.pop();
+                    }
                 }
 
                 i += 1;
@@ -271,21 +291,29 @@ impl Parser {
                 if let Some(parent) = stack.last().copied() {
                     append_child(parent, node_id, &mut self.dom);
                 }
-
-                info!("TEXT: {}", self.dom.resolve(text));
             }
         }
-
-        // DEBUG
-        // for n in &self.dom.nodes {
-        //     info!("node_parent: {:?}", n.parent);
-        //     debug_node(&n, &self.dom);
-        // }
 
         Ok(())
     }
 
-    pub fn render(&self, _grid: &mut ScreenGrid) -> bool {
-        true
+    fn is_void_tag(&self, tag: &StrSlice) -> bool {
+        matches!(
+            self.dom.resolve(*tag),
+            "area"
+                | "base"
+                | "br"
+                | "col"
+                | "embed"
+                | "hr"
+                | "img"
+                | "input"
+                | "link"
+                | "meta"
+                | "param"
+                | "source"
+                | "track"
+                | "wbr"
+        )
     }
 }
