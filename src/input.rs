@@ -192,7 +192,9 @@ impl VirtualKeyboard {
                         self.dirty = self.active_key != Some(i);
                         self.active_key = Some(i);
                         self.active_button = None;
-                        break;
+
+                        // Early return, only register keypress on TouchEvent::Up
+                        return (None, self.dirty);
                     }
                 }
 
@@ -201,7 +203,9 @@ impl VirtualKeyboard {
                         self.dirty = self.active_button != Some(i);
                         self.active_key = None;
                         self.active_button = Some(i);
-                        break;
+
+                        // Early return, only register keypress on TouchEvent::Up
+                        return (None, self.dirty);
                     }
                 }
             }

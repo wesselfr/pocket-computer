@@ -7,9 +7,11 @@ use crate::{
     input::{ButtonEvent, KeyboardEvent, Rect, VirtualKeyboard},
 };
 
+const MAX_FILE_SIZE: usize = 8192;
+
 pub struct NotesApp {
     current_file: String<MAX_FILE_NAME_LENGTH>,
-    text: Vec<u8, 255>,
+    text: Vec<u8, MAX_FILE_SIZE>,
     cursor_index: usize,
     dirty: bool,
     keyboard: VirtualKeyboard,
@@ -192,7 +194,6 @@ impl App for NotesApp {
                     if self.cursor_index > 0 && !self.text.is_empty() {
                         self.text.remove(self.cursor_index - 1);
                         self.cursor_index -= 1;
-                        // self.text.pop();
                     }
                     ctx.grid.clear(' ', BASE03, BASE03);
                     self.dirty = true;
