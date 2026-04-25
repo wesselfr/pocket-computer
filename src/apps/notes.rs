@@ -159,26 +159,22 @@ impl App for NotesApp {
             if id == " < " {
                 if self.cursor_index > 0 {
                     self.cursor_index -= 1;
-                    // HACK: Force redraw to prevent ghost cursor.
-                    ctx.grid.clear(' ', BASE03, BASE03);
+                    return AppResponse::dirty();
                 }
             }
             if id == " > " {
                 if self.cursor_index < self.text.len() {
                     self.cursor_index += 1;
-                    // HACK: Force redraw to prevent ghost cursor.
-                    ctx.grid.clear(' ', BASE03, BASE03);
+                    return AppResponse::dirty();
                 }
             }
             if id == "BEGIN" {
                 self.cursor_index = 0;
-                // HACK: Force redraw to prevent ghost cursor.
-                ctx.grid.clear(' ', BASE03, BASE03);
+                return AppResponse::dirty();
             }
             if id == "END" {
                 self.cursor_index = self.text.len();
-                // HACK: Force redraw to prevent ghost cursor.
-                ctx.grid.clear(' ', BASE03, BASE03);
+                return AppResponse::dirty();
             }
         }
 
@@ -244,6 +240,8 @@ impl App for NotesApp {
             if *ch == b'\n' {
                 if is_cursor {
                     ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE01);
+                } else {
+                    ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE03);
                 }
 
                 y += 1;
@@ -269,6 +267,8 @@ impl App for NotesApp {
         }
         if self.cursor_index == self.text.len() {
             ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE01);
+        } else {
+            ctx.grid.put_char(x, 4 + y, ' ', BASE3, BASE03);
         }
     }
     fn get_name(&self) -> &'static str {
