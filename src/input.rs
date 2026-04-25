@@ -49,6 +49,14 @@ impl Rect {
             y_max: y_max * CELL_H,
         }
     }
+    pub fn expand(&self, size: u16) -> Self {
+        Self {
+            x_min: self.x_min.saturating_sub(size),
+            y_min: self.y_min.saturating_sub(size),
+            x_max: self.x_max.saturating_add(size),
+            y_max: self.y_max.saturating_add(size),
+        }
+    }
     pub fn inside(&self, x: u16, y: u16) -> bool {
         x >= self.x_min && x <= self.x_max && y >= self.y_min && y <= self.y_max
     }
@@ -90,12 +98,26 @@ impl ButtonManager {
     }
     pub fn update(&mut self, touch_event: &TouchEvent) -> Option<ButtonEvent> {
         match touch_event {
-            TouchEvent::Down { x, y } | TouchEvent::Move { x, y } => {
+            TouchEvent::Down { x, y } => {
                 for (id, rect) in &self.buttons {
                     if rect.inside(*x, *y) {
                         self.dirty = self.active_button != Some(*id);
                         self.active_button = Some(*id);
+
                         return Some(ButtonEvent::Down(*id));
+                    }
+                }
+
+                self.dirty = self.active_button != None;
+                self.active_button = None;
+            }
+            TouchEvent::Move { x, y } => {
+                if let Some(button) = self.active_button {
+                    let rect = self.buttons[button].expand(16);
+
+                    if !rect.inside(*x, *y) {
+                        self.dirty = self.active_button != None;
+                        self.active_button = None;
                     }
                 }
             }
