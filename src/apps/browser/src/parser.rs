@@ -1,5 +1,4 @@
 use core::str;
-
 use heapless::{String, Vec};
 use log::info;
 
@@ -34,14 +33,9 @@ impl StringArena {
     }
 }
 
-// struct Attr {
-//     key: StrSlice,
-//     value: StrSlice,
-// }
-
 pub struct Dom {
     nodes: heapless::Vec<Node, 256>,
-    // attrs: heapless::Vec<Attr, 128>,
+    attrs: heapless::Vec<Attr, 128>,
     strings: StringArena,
 }
 
@@ -49,7 +43,7 @@ impl Default for Dom {
     fn default() -> Self {
         Self {
             nodes: Vec::new(),
-            // attrs: Vec::new(),
+            attrs: Vec::new(),
             strings: StringArena::new(),
         }
     }
@@ -69,6 +63,25 @@ impl Dom {
     }
     fn get_node_mut(&mut self, id: NodeId) -> &mut Node {
         &mut self.nodes[id as usize]
+    }
+
+    pub fn get_attrs(&self, slice: AttrSlice) -> &[Attr] {
+        let start = slice.start as usize;
+        let end = start + slice.len as usize;
+        &self.attrs[start..end]
+    }
+    pub fn get_attr_value(&self, element: &ElementData, key: &str) -> Option<StrSlice> {
+        self.get_attrs(element.attrs)
+            .iter()
+            .find(|attr| self.resolve(attr.key).eq_ignore_ascii_case(key))
+            .and_then(|attr| attr.value)
+    }
+    pub fn get_attr_value_as_str(&self, element: &ElementData, key: &str) -> Option<&str> {
+        self.get_attrs(element.attrs)
+            .iter()
+            .find(|attr| self.resolve(attr.key).eq_ignore_ascii_case(key))
+            .and_then(|attr| attr.value)
+            .map(|slice| self.resolve(slice))
     }
 }
 
@@ -108,13 +121,25 @@ pub enum NodeType {
 #[derive(Debug)]
 pub struct ElementData {
     pub tag_name: StrSlice,
-    attrs: Option<StrSlice>,
+    pub attrs: AttrSlice,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct StrSlice {
     start: u16,
     len: u16,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct AttrSlice {
+    start: u16,
+    len: u16,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Attr {
+    pub key: StrSlice,
+    pub value: Option<StrSlice>,
 }
 
 pub enum ParseError {
@@ -173,7 +198,7 @@ impl Parser {
         // HACK: Always add a root node.
         let root_node = Node::element(ElementData {
             tag_name: self.dom.strings.push("ROOT"),
-            attrs: None,
+            attrs: AttrSlice { start: 0, len: 0 },
         });
         let _ = self.dom.nodes.push(root_node);
         let _ = stack.push(0);
@@ -205,36 +230,27 @@ impl Parser {
                     return Err(ParseError::Invalid);
                 }
 
-                let mut tag_end = i;
-                let mut attr_start = i;
-                while attr_start > start && !bytes[attr_start].is_ascii_whitespace() {
-                    attr_start -= 1;
+                let mut tag_end = start;
+                while tag_end < i && !bytes[tag_end].is_ascii_whitespace() {
+                    tag_end += 1;
                 }
 
-                // Has attrs
-                if attr_start != start {
-                    tag_end = attr_start;
+                let mut attr_start = tag_end;
+                while attr_start < i && bytes[attr_start].is_ascii_whitespace() {
+                    attr_start += 1;
                 }
 
-                let val = &bytes[start..tag_end];
+                let attrs = if attr_start < i {
+                    self.parse_attrs(&bytes[attr_start..i])
+                } else {
+                    AttrSlice { start: 0, len: 0 }
+                };
+
                 let tag = self
                     .dom
                     .strings
-                    .push(str::from_utf8(val).unwrap_or_default());
+                    .push(str::from_utf8(&bytes[start..tag_end]).unwrap_or_default());
                 let void_tag = self.is_void_tag(&tag);
-
-                info!("TAG: {} is_closing: {}", self.dom.resolve(tag), is_closing);
-
-                let attr = if attr_start != start {
-                    let val = &bytes[attr_start..i];
-                    let attr = self
-                        .dom
-                        .strings
-                        .push(str::from_utf8(val).unwrap_or_default());
-                    Some(attr)
-                } else {
-                    None
-                };
 
                 if !is_closing {
                     let node_id = self.dom.nodes.len() as NodeId;
@@ -242,7 +258,7 @@ impl Parser {
                         .nodes
                         .push(Node::element(ElementData {
                             tag_name: tag,
-                            attrs: attr,
+                            attrs,
                         }))
                         .unwrap_or_default();
 
@@ -295,6 +311,86 @@ impl Parser {
         }
 
         Ok(())
+    }
+
+    fn parse_attrs(&mut self, bytes: &[u8]) -> AttrSlice {
+        let start_index = self.dom.attrs.len();
+        let mut i = 0;
+
+        while i < bytes.len() {
+            while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+                i += 1;
+            }
+
+            if i >= bytes.len() {
+                break;
+            }
+
+            let key_start = i;
+            while i < bytes.len() && !bytes[i].is_ascii_whitespace() && bytes[i] != b'=' {
+                i += 1;
+            }
+
+            let key = self
+                .dom
+                .strings
+                .push(str::from_utf8(&bytes[key_start..i]).unwrap_or_default());
+
+            while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+                i += 1;
+            }
+
+            let value = if i < bytes.len() && bytes[i] == b'=' {
+                i += 1;
+
+                while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+                    i += 1;
+                }
+
+                if i < bytes.len() && (bytes[i] == b'"' || bytes[i] == b'\'') {
+                    let quote = bytes[i];
+                    i += 1;
+
+                    let value_start = i;
+
+                    while i < bytes.len() && bytes[i] != quote {
+                        i += 1;
+                    }
+
+                    let value = self
+                        .dom
+                        .strings
+                        .push(str::from_utf8(&bytes[value_start..i]).unwrap_or_default());
+
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+
+                    Some(value)
+                } else {
+                    let value_start = i;
+
+                    while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
+                        i += 1;
+                    }
+
+                    Some(
+                        self.dom
+                            .strings
+                            .push(str::from_utf8(&bytes[value_start..i]).unwrap_or_default()),
+                    )
+                }
+            } else {
+                None
+            };
+
+            let _ = self.dom.attrs.push(Attr { key, value });
+        }
+
+        AttrSlice {
+            start: start_index as u16,
+            len: (self.dom.attrs.len() - start_index) as u16,
+        }
     }
 
     fn is_void_tag(&self, tag: &StrSlice) -> bool {

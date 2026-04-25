@@ -1,7 +1,10 @@
-use crate::apps::browser::src::parser::{Dom, Node, NodeId, NodeType};
+use crate::apps::browser::src::parser::{Dom, NodeId, NodeType};
+use crate::apps::browser::src::regions::{HitAction, HitRegion, MAX_REGIONS};
 use crate::graphics::GridTarget;
+use crate::input::Rect;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::WebColors;
+use heapless::Vec;
 
 #[derive(Copy, Clone)]
 struct RenderStyle {
@@ -30,6 +33,7 @@ impl RenderStyle {
     }
 }
 
+#[derive(Clone, Copy)]
 struct Pos {
     x: u16,
     y: u16,
@@ -43,7 +47,12 @@ impl Renderer {
     pub fn new() -> Self {
         Self { dark_mode: false }
     }
-    pub fn render(&self, dom: &Dom, grid: &mut dyn GridTarget) {
+    pub fn render(
+        &self,
+        dom: &Dom,
+        regions: &mut Vec<HitRegion, MAX_REGIONS>,
+        grid: &mut dyn GridTarget,
+    ) {
         let mut pos = Pos { x: 0, y: 0 };
 
         let base_style = if self.dark_mode {
@@ -54,7 +63,7 @@ impl Renderer {
 
         grid.draw_box(0, 0, grid.cols(), grid.rows(), base_style.bg);
 
-        self.render_node(0, &mut pos, dom, base_style, grid);
+        self.render_node(0, &mut pos, dom, regions, base_style, grid);
     }
 
     fn render_text(
@@ -96,13 +105,14 @@ impl Renderer {
         parent_id: NodeId,
         pos: &mut Pos,
         dom: &Dom,
+        regions: &mut Vec<HitRegion, MAX_REGIONS>,
         style: RenderStyle,
         grid: &mut dyn GridTarget,
     ) {
         let mut child = dom.get_node(parent_id).first_child;
 
         while let Some(child_id) = child {
-            self.render_node(child_id, pos, dom, style, grid);
+            self.render_node(child_id, pos, dom, regions, style, grid);
             child = dom.get_node(child_id).next_sibling;
         }
     }
@@ -112,6 +122,7 @@ impl Renderer {
         node_id: NodeId,
         pos: &mut Pos,
         dom: &Dom,
+        regions: &mut Vec<HitRegion, MAX_REGIONS>,
         style: RenderStyle,
         grid: &mut dyn GridTarget,
     ) {
@@ -127,7 +138,7 @@ impl Renderer {
 
                 match tag {
                     "ROOT" => {
-                        self.render_children(node_id, pos, dom, style, grid);
+                        self.render_children(node_id, pos, dom, regions, style, grid);
                     }
                     "h1" => {
                         if pos.x != 0 {
@@ -146,7 +157,7 @@ impl Renderer {
                             indent: 0,
                         };
 
-                        self.render_children(node_id, pos, dom, h1_style, grid);
+                        self.render_children(node_id, pos, dom, regions, h1_style, grid);
 
                         pos.x = 0;
                         pos.y += 2;
@@ -157,7 +168,7 @@ impl Renderer {
                             pos.y += 1;
                         }
 
-                        self.render_children(node_id, pos, dom, style, grid);
+                        self.render_children(node_id, pos, dom, regions, style, grid);
 
                         pos.x = 0;
                         pos.y += 1;
@@ -169,7 +180,24 @@ impl Renderer {
                             uppercase: style.uppercase,
                             indent: style.indent,
                         };
-                        self.render_children(node_id, pos, dom, link_style, grid);
+                        let hit_target_start = pos.clone();
+                        self.render_children(node_id, pos, dom, regions, link_style, grid);
+                        let hit_target_end = pos.clone();
+
+                        if let Some(href) = dom.get_attr_value(element, "href") {
+                            // TODO: Handle edge case with too many regions.
+                            regions
+                                .push(HitRegion {
+                                    rect: Rect {
+                                        x_min: hit_target_start.x,
+                                        y_min: hit_target_start.y,
+                                        x_max: (hit_target_end.x).max(1),
+                                        y_max: (hit_target_end.y + 1).max(1),
+                                    },
+                                    action: HitAction::Link { href },
+                                })
+                                .unwrap_or_default();
+                        }
                     }
                     "br" => {
                         pos.x = 0;
@@ -182,10 +210,10 @@ impl Renderer {
                             uppercase: true,
                             indent: style.indent,
                         };
-                        self.render_children(node_id, pos, dom, bold_style, grid);
+                        self.render_children(node_id, pos, dom, regions, bold_style, grid);
                     }
                     "div" => {
-                        self.render_children(node_id, pos, dom, style, grid);
+                        self.render_children(node_id, pos, dom, regions, style, grid);
                     }
                     "ul" => {
                         if pos.x != 0 {
@@ -200,13 +228,13 @@ impl Renderer {
                             indent: style.indent + 1,
                         };
 
-                        self.render_children(node_id, pos, dom, list_style, grid);
+                        self.render_children(node_id, pos, dom, regions, list_style, grid);
                     }
                     "li" => {
                         pos.x = style.indent;
 
                         self.render_text("- ", pos, style, grid);
-                        self.render_children(node_id, pos, dom, style, grid);
+                        self.render_children(node_id, pos, dom, regions, style, grid);
 
                         pos.x = 0;
                         pos.y += 1;
@@ -225,13 +253,13 @@ impl Renderer {
                         };
 
                         self.render_text("> ", pos, quote_style, grid);
-                        self.render_children(node_id, pos, dom, quote_style, grid);
+                        self.render_children(node_id, pos, dom, regions, quote_style, grid);
 
                         pos.x = 0;
                         pos.y += 1;
                     }
                     _ => {
-                        self.render_children(node_id, pos, dom, style, grid);
+                        self.render_children(node_id, pos, dom, regions, style, grid);
                     }
                 }
             }

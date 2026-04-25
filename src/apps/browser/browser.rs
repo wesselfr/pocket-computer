@@ -1,18 +1,24 @@
-use log::info;
+use heapless::{String, Vec};
+use log::error;
 
 use crate::{
     apps::{
         app::{App, AppArgs, AppResponse, Context, InputEvents},
-        browser::src::{parser::Parser, render::Renderer},
+        browser::src::{
+            parser::Parser,
+            regions::{HitAction, HitRegion, MAX_REGIONS},
+            render::Renderer,
+        },
     },
     graphics::*,
     input::{ButtonEvent, Rect},
+    touch::TouchEvent,
 };
 
 const HTML_EXAMPLE: &str = r#"
 <h1>Pocket Computer</h1>
 <p>This is a tiny browser experiment.</p>
-<p>Check out <a href="/about">about</a>.</p>
+<p>Check out <a href="/about" id="AWESOME">about</a>.</p>
 <p>List test:</p>
 <ul>
 <li>First item</li>
@@ -20,11 +26,17 @@ const HTML_EXAMPLE: &str = r#"
 <li>Thrid Item</li>
 </ul>
 <br>
-<blockquote>This is a quote!</blockquot"#;
+<blockquote>This is a quote!</blockquote>"#;
+
+const HTML_EXAMPLE_2: &str = r#"
+<h1>ABOUT PAGE</h1>
+<p>Welcome to the about page</p>
+<p>Click here to go <a href="/example">back</a>.</p>"#;
 
 pub struct BrowserApp {
     parser: Parser,
     renderer: Renderer,
+    regions: Vec<HitRegion, MAX_REGIONS>,
     scroll_y: u16,
 }
 
@@ -33,6 +45,7 @@ impl Default for BrowserApp {
         Self {
             parser: Parser::new(),
             renderer: Renderer::new(),
+            regions: Vec::new(),
             scroll_y: 0,
         }
     }
@@ -79,11 +92,21 @@ impl App for BrowserApp {
                 .create("example.html", HTML_EXAMPLE.as_bytes())
                 .expect("Failed to write example.html");
         }
+        if !ctx.fs.exists("about.html") {
+            ctx.fs
+                .create("about.html", HTML_EXAMPLE_2.as_bytes())
+                .expect("Failed to write example.html");
+        }
+
         let res = self.parser.parse(
             ctx.fs
                 .read("example.html")
                 .expect("Failed to load example.html"),
         );
+
+        if res.is_err() {
+            error!("Failed to parse html.");
+        }
 
         AppResponse::dirty()
     }
@@ -102,12 +125,55 @@ impl App for BrowserApp {
                 self.scroll_y += 1;
             }
         }
+
+        if let Some(TouchEvent::Down { x, y }) = input.touch {
+            let x = x.div_ceil(CELL_W);
+            let y = y
+                .div_ceil(CELL_H)
+                .saturating_add(self.scroll_y)
+                .saturating_sub(4);
+            for region in &self.regions {
+                if region.rect.inside(x, y) {
+                    let HitAction::Link { href } = region.action;
+
+                    let mut adress = String::<64>::new();
+                    let href = self
+                        .parser
+                        .get_dom()
+                        .resolve(href)
+                        .strip_prefix('/')
+                        .unwrap_or_default();
+
+                    // If it already has an extension, keep it
+                    if href.contains('.') {
+                        adress.push_str(href).ok();
+                    } else {
+                        adress.push_str(href).ok();
+                        adress.push_str(".html").ok();
+                    }
+
+                    let res = self
+                        .parser
+                        .parse(ctx.fs.read(&adress).expect("Failed to load example.html"));
+
+                    if res.is_err() {
+                        error!("Failed to parse html page");
+                    }
+
+                    self.scroll_y = 0;
+                    return AppResponse::dirty();
+                }
+            }
+        }
+
         AppResponse::none()
     }
     fn render(&mut self, ctx: &mut Context) {
         let mut page = SubGrid::new(0, 4, SCREEN_W, SCREEN_H - 1, ctx.grid);
         page.set_scroll(0, self.scroll_y);
-        self.renderer.render(self.parser.get_dom(), &mut page);
+        self.regions.clear();
+        self.renderer
+            .render(self.parser.get_dom(), &mut self.regions, &mut page);
     }
     fn get_name(&self) -> &'static str {
         "POCKET_BROWSER"
