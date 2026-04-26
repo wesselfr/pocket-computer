@@ -5,7 +5,8 @@ use crate::{
     apps::{
         app::{App, AppArgs, AppResponse, Context, InputEvents},
         browser::src::{
-            parser::Parser,
+            navigation::{Resource, resolve_href, resolve_local_path},
+            parser::{Parser, StrSlice},
             regions::{HitAction, HitRegion, MAX_REGIONS},
             render::Renderer,
         },
@@ -135,33 +136,7 @@ impl App for BrowserApp {
             for region in &self.regions {
                 if region.rect.inside(x, y) {
                     let HitAction::Link { href } = region.action;
-
-                    let mut adress = String::<64>::new();
-                    let href = self
-                        .parser
-                        .get_dom()
-                        .resolve(href)
-                        .strip_prefix('/')
-                        .unwrap_or_default();
-
-                    // If it already has an extension, keep it
-                    if href.contains('.') {
-                        adress.push_str(href).ok();
-                    } else {
-                        adress.push_str(href).ok();
-                        adress.push_str(".html").ok();
-                    }
-
-                    let res = self
-                        .parser
-                        .parse(ctx.fs.read(&adress).expect("Failed to load example.html"));
-
-                    if res.is_err() {
-                        error!("Failed to parse html page");
-                    }
-
-                    self.scroll_y = 0;
-                    return AppResponse::dirty();
+                    return self.navigate(href, ctx);
                 }
             }
         }
@@ -177,5 +152,35 @@ impl App for BrowserApp {
     }
     fn get_name(&self) -> &'static str {
         "POCKET_BROWSER"
+    }
+}
+
+impl BrowserApp {
+    fn navigate(&mut self, href: StrSlice, ctx: &mut Context) -> AppResponse {
+        let href = self.parser.get_dom().resolve(href);
+        match resolve_href(href) {
+            Resource::Local(path) => {
+                let address = resolve_local_path(path);
+
+                let Some(bytes) = ctx.fs.read(&address) else {
+                    error!("Failed to load local html page: {}", address);
+                    return AppResponse::none();
+                };
+
+                // FIX: This will still overwrite the current active page on failure.
+                if self.parser.parse(bytes).is_err() {
+                    error!("Failed to parse html page: {}", address);
+                    return AppResponse::none();
+                }
+
+                self.scroll_y = 0;
+                AppResponse::dirty()
+            }
+
+            Resource::Remote { host, path } => {
+                error!("Remote navigation not implemented yet: {}{}", host, path);
+                AppResponse::none()
+            }
+        }
     }
 }
