@@ -106,14 +106,14 @@ impl<'a> TouchDriver<'a> {
     }
 }
 
-pub struct TouchPoller<'a> {
+pub struct TouchPoller<'driver, 'pins> {
     calibration: TouchCalibration,
-    driver: &'a mut TouchDriver<'a>,
+    driver: &'driver mut TouchDriver<'pins>,
     touch_down: bool,
 }
 
-impl<'a> TouchPoller<'a> {
-    pub fn new(calibration: TouchCalibration, driver: &'a mut TouchDriver<'a>) -> Self {
+impl<'driver, 'pins> TouchPoller<'driver, 'pins> {
+    pub fn new(calibration: TouchCalibration, driver: &'driver mut TouchDriver<'pins>) -> Self {
         Self {
             calibration,
             driver,
