@@ -177,7 +177,7 @@ impl BrowserApp {
                 AppResponse::dirty()
             }
 
-            Resource::Remote { host, path } => {
+            Resource::Remote { host, port, path } => {
                 error!("Remote navigation not implemented yet: {}{}", host, path);
                 AppResponse::none()
             }
