@@ -82,7 +82,7 @@ impl<'a> Storage<'a> {
         }
     }
 
-    pub fn dump_memfs(&mut self, memfs: &mut MemFs) -> Result<(), StorageError> {
+    pub fn dump_memfs(&mut self, data: &[u8]) -> Result<(), StorageError> {
         if let Some(partition) = &self.get_memfs_partition() {
             let slot = self
                 .get_valid_slot(partition.offset, true)
@@ -90,7 +90,6 @@ impl<'a> Storage<'a> {
 
             let offset = self.slot_offset(partition.offset, slot);
 
-            let data = self.dump_to_vec(&memfs);
             if data.len() > MemFs::serialized_max_size() {
                 return Err(StorageError::InvalidSize);
             }

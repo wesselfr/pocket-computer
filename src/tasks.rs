@@ -1,4 +1,4 @@
-use core::cell::RefCell;
+use core::{cell::RefCell, fmt::Error};
 
 use embassy_executor::Spawner;
 use embassy_sync::{
@@ -6,7 +6,7 @@ use embassy_sync::{
     channel::{Channel, Receiver, Sender},
 };
 use heapless::{String, Vec};
-use log::info;
+use log::{error, info};
 
 use crate::storage::Storage;
 
@@ -177,12 +177,22 @@ async fn test_task() -> TaskResult {
 }
 
 async fn dump_memfs(storage: &mut Storage<'_>, len: usize) -> TaskResult {
-    SCRATCH_BUF.lock(|cell| {
+    info!("Dumping MemFs");
+    let result = SCRATCH_BUF.lock(|cell| {
         let scratch = cell.borrow();
         let data = &scratch.as_slice()[..len];
-        info!("Dumping: {:?}", data);
+        storage.dump_memfs(data)
     });
-    TaskResult::Ok
+    match result {
+        Ok(()) => {
+            info!("Dump Completed!");
+            return TaskResult::Ok;
+        }
+        Err(e) => {
+            error!("{:?}", e);
+            return TaskResult::Failed(TaskError::Storage);
+        }
+    }
 }
 
 #[embassy_executor::task]
