@@ -243,7 +243,7 @@ pub fn calibrate_touch<D: DrawTarget<Color = Rgb565>, DM: DriverMode>(
             _ => {}
         }
 
-        render_grid(display, screen_grid);
+        let _ = render_grid(display, screen_grid);
         delay.delay_millis(200);
     }
     calibration

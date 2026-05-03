@@ -14,11 +14,10 @@ use esp_hal::ledc::timer::*;
 use esp_hal::ledc::{Ledc, LowSpeed};
 use esp_hal::time::{Instant, Rate};
 use esp_hal::timer::timg::TimerGroup;
-use esp_rtos::embassy::Executor;
 use pocket_computer::display::{DisplayDriver, DisplayPins};
 use pocket_computer::power::{PowerManager, PowerMode};
 use pocket_computer::storage::Storage;
-use pocket_computer::tasks::{Task, TaskContext, TaskKind, TaskSystem};
+use pocket_computer::tasks::{TaskContext, TaskSystem};
 
 use core::cell::RefCell;
 use log::info;

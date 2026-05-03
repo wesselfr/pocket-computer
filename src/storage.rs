@@ -199,13 +199,6 @@ impl<'a> Storage<'a> {
         }
     }
 
-    fn dump_to_vec(&self, fs: &MemFs) -> Vec<u8, 4196> {
-        let mut out = Vec::new();
-        fs.dump(|chunk| out.extend_from_slice(chunk).unwrap())
-            .unwrap();
-        out
-    }
-
     fn restore_from_slice(&self, fs: &mut MemFs, data: &[u8]) -> Result<(), mem_fs::FsErr> {
         let mut pos = 0usize;
         fs.restore(|buf| {

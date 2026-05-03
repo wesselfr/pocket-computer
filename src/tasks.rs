@@ -1,5 +1,4 @@
-use core::{cell::RefCell, fmt::Error};
-
+use core::cell::RefCell;
 use embassy_executor::Spawner;
 use embassy_sync::{
     blocking_mutex::{Mutex, raw::CriticalSectionRawMutex},

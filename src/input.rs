@@ -1,7 +1,6 @@
 use crate::{
     graphics::{
-        BASE01, BASE02, BASE3, CELL_H, CELL_W, GridTarget, SCREEN_W, ScreenGrid,
-        screen_pos_to_grid_pos,
+        BASE01, BASE02, BASE3, CELL_H, CELL_W, GridTarget, SCREEN_W, screen_pos_to_grid_pos,
     },
     touch::TouchEvent,
 };
