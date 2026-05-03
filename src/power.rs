@@ -1,9 +1,6 @@
 use crate::system::{SystemCmd, SystemSettings};
 use core::cell::RefCell;
-use esp_hal::{
-    delay::Delay,
-    time::{Duration, Instant},
-};
+use esp_hal::time::{Duration, Instant};
 use log::info;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -16,7 +13,6 @@ pub enum PowerMode {
 pub struct PowerManager {
     mode: PowerMode,
     last_activity: Instant,
-    delay: Delay,
 }
 
 impl PowerManager {
@@ -24,7 +20,6 @@ impl PowerManager {
         Self {
             mode: PowerMode::Active,
             last_activity: Instant::now(),
-            delay: Delay::new(),
         }
     }
     pub fn update(&mut self, settings: &RefCell<SystemSettings>) -> Option<SystemCmd> {
@@ -63,16 +58,16 @@ impl PowerManager {
     pub fn register_activity(&mut self) {
         self.last_activity = Instant::now();
     }
-    pub fn await_frame(&mut self) {
+    pub async fn await_frame(&mut self) {
         match self.mode {
             PowerMode::Active => {
-                self.delay.delay_millis(16);
+                embassy_time::Timer::after_millis(16).await;
             }
             PowerMode::Idle => {
-                self.delay.delay_millis(200);
+                embassy_time::Timer::after_millis(200).await;
             }
             PowerMode::Sleep => {
-                self.delay.delay_millis(400);
+                embassy_time::Timer::after_millis(400).await;
             }
         }
     }

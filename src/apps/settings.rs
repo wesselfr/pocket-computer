@@ -86,7 +86,7 @@ impl App for SettingsApp {
             }
             if id == "DUMP_MEMFS" {
                 ctx.tasks
-                    .add_task(crate::tasks::TaskKind::DumpMemFs)
+                    .dump_memfs(ctx.fs)
                     .expect("Failed to schedule memfs dump.");
             }
         };

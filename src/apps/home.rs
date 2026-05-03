@@ -1,18 +1,27 @@
+use log::info;
+
 use crate::{
     apps::app::{App, AppArgs, AppID, AppResponse, Context, InputEvents},
     graphics::*,
+    tasks::TaskId,
 };
 
-pub struct HomeApp {}
+pub struct HomeApp {
+    pending_task: Option<TaskId>,
+}
 
 impl Default for HomeApp {
     fn default() -> Self {
-        Self {}
+        Self { pending_task: None }
     }
 }
 
 impl App for HomeApp {
     fn init(&mut self, ctx: &mut Context, _args: AppArgs) -> AppResponse {
+        if let Ok(id) = ctx.tasks.add_task(crate::tasks::TaskKind::SyncTime) {
+            self.pending_task = Some(id);
+        }
+
         ctx.grid.clear(' ', BASE03, BASE03);
         ctx.buttons.clear();
 
@@ -83,6 +92,13 @@ impl App for HomeApp {
         AppResponse::dirty()
     }
     fn update(&mut self, input: InputEvents, _ctx: &mut Context) -> AppResponse {
+        if let Some(id) = self.pending_task {
+            if let Some(result) = _ctx.tasks.take_result(id) {
+                self.pending_task = None;
+                info!("Task Finished: {:?}", result);
+            }
+        }
+
         if let Some(button_event) = input.button {
             match button_event {
                 crate::input::ButtonEvent::Up(id) => {

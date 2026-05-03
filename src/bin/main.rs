@@ -6,16 +6,19 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use embassy_executor::Spawner;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::OutputConfig;
+use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::ledc::timer::*;
 use esp_hal::ledc::{Ledc, LowSpeed};
-use esp_hal::main;
 use esp_hal::time::{Instant, Rate};
+use esp_hal::timer::timg::TimerGroup;
+use esp_rtos::embassy::Executor;
 use pocket_computer::display::{DisplayDriver, DisplayPins};
 use pocket_computer::power::{PowerManager, PowerMode};
 use pocket_computer::storage::Storage;
-use pocket_computer::tasks::TaskSystem;
+use pocket_computer::tasks::{Task, TaskContext, TaskKind, TaskSystem};
 
 use core::cell::RefCell;
 use log::info;
@@ -40,12 +43,16 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
-#[main]
-fn main() -> ! {
+#[esp_rtos::main]
+async fn main(spawner: Spawner) {
     init_log(log::LevelFilter::Info).expect("Failed to initialize logger...");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     let output_config = OutputConfig::default();
+
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+    esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
 
     let mut ledc = Ledc::new(peripherals.LEDC);
     ledc.set_global_slow_clock(esp_hal::ledc::LSGlobalClkSource::APBClk);
@@ -111,8 +118,9 @@ fn main() -> ! {
     let settings = RefCell::new(SystemSettings::default());
     let mut power_manager = PowerManager::new();
 
-    let mut task_system = TaskSystem::default();
-    let (mut task_queue, mut task_runner) = task_system.split();
+    // TODO: Init on second core.
+    let mut task_system = TaskSystem::new();
+    task_system.init(spawner, TaskContext { storage });
 
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
@@ -120,7 +128,7 @@ fn main() -> ! {
         buttons: &mut button_manager,
         settings: SettingsView::new(&settings),
         fs: &mut fs,
-        tasks: &mut task_queue,
+        tasks: &mut task_system,
     };
 
     active_app.init(&mut ctx, AppArgs::None);
@@ -129,7 +137,7 @@ fn main() -> ! {
         let update_time = Instant::now();
 
         // TODO: Move to seperate core.
-        task_runner.update(&mut ctx, &mut storage);
+        ctx.tasks.update();
 
         let touch_event = touch_poller.poll();
         if touch_event.is_some() {
@@ -203,6 +211,6 @@ fn main() -> ! {
         if update_time > 0 {
             info!("Total update took: {}ms", update_time);
         }
-        power_manager.await_frame();
+        power_manager.await_frame().await;
     }
 }
