@@ -1,11 +1,12 @@
+use core::str::FromStr;
 use heapless::{String, Vec};
-use log::error;
+use log::{error, info};
 
 use crate::{
     apps::{
         app::{App, AppArgs, AppResponse, Context, InputEvents},
         browser::src::{
-            navigation::{Resource, resolve_href, resolve_local_path},
+            navigation::{Resource, resolve_href_from, resolve_local_path},
             parser::{Parser, StrSlice},
             regions::{HitAction, HitRegion, MAX_REGIONS},
             render::Renderer,
@@ -13,6 +14,7 @@ use crate::{
     },
     graphics::*,
     input::{ButtonEvent, Rect},
+    tasks::TaskId,
     touch::TouchEvent,
 };
 
@@ -39,6 +41,8 @@ pub struct BrowserApp {
     renderer: Renderer,
     regions: Vec<HitRegion, MAX_REGIONS>,
     scroll_y: u16,
+    pending_request: Option<(TaskId, Resource)>,
+    current_resource: Resource,
 }
 
 impl Default for BrowserApp {
@@ -48,6 +52,8 @@ impl Default for BrowserApp {
             renderer: Renderer::new(),
             regions: Vec::new(),
             scroll_y: 0,
+            pending_request: None,
+            current_resource: Resource::Local(String::from_str("example.html").unwrap_or_default()),
         }
     }
 }
@@ -84,6 +90,16 @@ impl App for BrowserApp {
                 x_min: 9 * CELL_W,
                 y_min: 2 * CELL_H,
                 x_max: 13 * CELL_W,
+                y_max: 4 * CELL_H,
+            },
+        );
+
+        ctx.buttons.register_button(
+            "TEST",
+            Rect {
+                x_min: 14 * CELL_W,
+                y_min: 2 * CELL_H,
+                x_max: 18 * CELL_W,
                 y_max: 4 * CELL_H,
             },
         );
@@ -125,6 +141,22 @@ impl App for BrowserApp {
             if id == "DOWN" {
                 self.scroll_y += 1;
             }
+            if id == "TEST" {
+                if let Ok(task) = ctx
+                    .tasks
+                    .add_http_task("192.168.178.52", 8000, "index.html")
+                {
+                    self.pending_request = Some((
+                        task,
+                        Resource::Remote {
+                            host: String::from_str("192.168.178.52").unwrap_or_default(),
+                            port: 8000,
+                            path: String::from_str("index.html").unwrap_or_default(),
+                        },
+                    ));
+                    info!("New Request!");
+                }
+            }
         }
 
         if let Some(TouchEvent::Down { x, y }) = input.touch {
@@ -137,6 +169,31 @@ impl App for BrowserApp {
                 if region.rect.inside(x, y) {
                     let HitAction::Link { href } = region.action;
                     return self.navigate(href, ctx);
+                }
+            }
+        }
+
+        if let Some(pending_task) = &self.pending_request {
+            if let Some(result) = ctx.tasks.take_result(pending_task.0) {
+                info!("Request Finished");
+                let resource = pending_task.1.clone();
+                self.pending_request = None;
+
+                match result {
+                    crate::tasks::TaskResult::WithData { data } => {
+                        if self.parser.parse(&data).is_err() {
+                            error!("Failed to parse html page");
+                            return AppResponse::none();
+                        }
+
+                        self.current_resource = resource;
+
+                        self.scroll_y = 0;
+                        return AppResponse::dirty();
+                    }
+                    _ => {
+                        error!("Invalid data..")
+                    }
                 }
             }
         }
@@ -158,9 +215,9 @@ impl App for BrowserApp {
 impl BrowserApp {
     fn navigate(&mut self, href: StrSlice, ctx: &mut Context) -> AppResponse {
         let href = self.parser.get_dom().resolve(href);
-        match resolve_href(href) {
+        match resolve_href_from(href, &self.current_resource) {
             Resource::Local(path) => {
-                let address = resolve_local_path(path);
+                let address = resolve_local_path(&path);
 
                 let Some(bytes) = ctx.fs.read(&address) else {
                     error!("Failed to load local html page: {}", address);
@@ -178,8 +235,12 @@ impl BrowserApp {
             }
 
             Resource::Remote { host, port, path } => {
-                error!("Remote navigation not implemented yet: {}{}", host, path);
-                AppResponse::none()
+                let path = resolve_local_path(&path);
+                if let Ok(task) = ctx.tasks.add_http_task(&host, port, &path) {
+                    self.pending_request = Some((task, Resource::Remote { host, port, path }));
+                }
+
+                AppResponse::dirty()
             }
         }
     }

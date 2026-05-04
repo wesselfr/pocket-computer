@@ -34,7 +34,7 @@ impl StringArena {
 }
 
 pub struct Dom {
-    nodes: heapless::Vec<Node, 256>,
+    nodes: heapless::Vec<Node, 512>,
     attrs: heapless::Vec<Attr, 128>,
     strings: StringArena,
 }

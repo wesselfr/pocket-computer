@@ -7,6 +7,7 @@
 )]
 
 use embassy_executor::Spawner;
+use esp_alloc as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::OutputConfig;
 use esp_hal::interrupt::software::SoftwareInterruptControl;
@@ -14,6 +15,7 @@ use esp_hal::ledc::timer::*;
 use esp_hal::ledc::{Ledc, LowSpeed};
 use esp_hal::time::{Instant, Rate};
 use esp_hal::timer::timg::TimerGroup;
+use esp_radio::wifi::ControllerConfig;
 use pocket_computer::display::{DisplayDriver, DisplayPins};
 use pocket_computer::power::{PowerManager, PowerMode};
 use pocket_computer::storage::Storage;
@@ -31,6 +33,8 @@ use pocket_computer::touch::{TouchCalibration, TouchDriver, TouchPins, TouchPoll
 
 use pocket_computer::apps::app::{App, AppArgs, AppCmd, AppID, Context, InputEvents};
 use pocket_computer::graphics::*;
+
+extern crate alloc;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -52,6 +56,15 @@ async fn main(spawner: Spawner) {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
     esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
+
+    // Required allocators for Wifi
+    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 64 * 1024);
+    esp_alloc::heap_allocator!(size: 36 * 1024);
+
+    info!("Starting wifi.");
+    let (controller, interfaces) =
+        esp_radio::wifi::new(peripherals.WIFI, ControllerConfig::default()).unwrap();
+    info!("Wifi Started");
 
     let mut ledc = Ledc::new(peripherals.LEDC);
     ledc.set_global_slow_clock(esp_hal::ledc::LSGlobalClkSource::APBClk);
@@ -119,7 +132,7 @@ async fn main(spawner: Spawner) {
 
     // TODO: Init on second core.
     let mut task_system = TaskSystem::new();
-    task_system.init(spawner, TaskContext { storage });
+    task_system.init(spawner, TaskContext { storage }, controller, interfaces);
 
     let mut active_app = AppState::Home(HomeApp::default());
     let mut ctx = Context {
